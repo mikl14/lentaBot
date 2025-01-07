@@ -1,44 +1,46 @@
-package com.telegrambot.lentaBot.service;
+package com.telegrambot.lentaBot.bot.service;
 
 
-import com.telegrambot.lentaBot.config.BotConfig;
+import com.telegrambot.lentaBot.bot.config.BotConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service
+@Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
     @Value("${bot.adminedChatId}")
     String adminedChatId;           //Id чата куда бот будет отправлять сообщения о записи
 
-    //final TelegramClient telegramClient;
+    /**
+     * <b>Users_session</b>
+     * Словарь пользователей чья сессия сейчас запущена,
+     * ключ - ChatId, значение - User
+     */
+
+
+    //Данные клавиатур:
+    String[] defaultKeyBoard = new String[]{"О нас", "Получить консультацию"};
+    String[] facultets = new String[]{"ИУ", "СМ", "РК", "МТ", "РЛ", "ИБМ", "ПС", "АК", "РТ", "ФН", "Э", "ЮР", "К", "ЛТ", "СГН", "РКТ", "БМТ"}; // список факультетов
+    String[] callsBacksFacultets = getCallsBackDatas(facultets); // см нижу метод getCallsBackDatas()
+
 
     public TelegramBot(BotConfig config) {
         this.config = config;
-
-/*        this.telegramClient = telegramClient;
-
-        // Замените на ваш номер телефона
-        String phoneNumber = "+79164831404";
-        telegramClient.login(phoneNumber);
-
-        String code = "";
-        telegramClient.checkCode(code);*/
     }
 
     @Override
@@ -71,15 +73,43 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         //   ниже обработка кнопок с клавиатуры в панели и команд в сообщении!
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
+        var message = update.getMessage();
+        if (update.hasMessage()) {
+            long chatId = message.getChatId();
+            if (message.hasText()) {
+                String messageText = message.getText();
+                deleteMessage(update.getMessage());
+                switch (messageText) {
+                    case "/start":
+                    case "/info":
+                        send(BotMessageService.CreateMessage(chatId, "Я Бот Учебно-методической комиссии"));
+
+                        break;
+                    case "Назад":
+
+                        break;
+
+                }
+            }
 
         }
         //   ниже обработка кнопок с клавиатур в сообщении!
         else if (update.hasCallbackQuery()) {
+            String query = update.getCallbackQuery().getData();
+            long ChatId = update.getCallbackQuery().getMessage().getChatId();
+
 
         }
     }
+
+
+    public void deleteMessage(Message mes) {
+        DeleteMessage delMes = new DeleteMessage();
+        delMes.setChatId(String.valueOf(mes.getChatId()));
+        delMes.setMessageId(mes.getMessageId());
+        send(delMes);
+    }
+
 
     /**
      * <b>send</b>
@@ -87,7 +117,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      *
      * @param messageObj
      */
-    public void send(SendDocument messageObj) {
+    public void send(SendMessage messageObj) {
         try {
             execute(messageObj);
         } catch (TelegramApiException ex) {
@@ -119,7 +149,6 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public void send(BotApiMethod<Serializable> messageObj) {
         try {
-
             execute(messageObj);
         } catch (TelegramApiException ex) {
             throw new RuntimeException(ex);
@@ -137,6 +166,16 @@ public class TelegramBot extends TelegramLongPollingBot {
         return ChronoUnit.MINUTES.between(time1, time2);
     }
 
+    /**
+     * <b>clearUsersSessions</b>
+     * будет вызван каждые 15 минут с момента запуска приложения
+     * отчищает все сессии которые не активны более 15 минут
+     */
+    @Scheduled(fixedRate = 1000 * 60 * 2) // 2 минуты
+    public void clearUsersSessions() {
+
+
+    }
 }
 
 
