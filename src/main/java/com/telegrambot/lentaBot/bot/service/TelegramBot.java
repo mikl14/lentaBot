@@ -2,11 +2,14 @@ package com.telegrambot.lentaBot.bot.service;
 
 
 import com.telegrambot.lentaBot.bot.config.BotConfig;
+import com.telegrambot.lentaBot.bot.entity.Channel;
+import com.telegrambot.lentaBot.bot.entity.Chat;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -23,24 +26,19 @@ import java.util.List;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
-    @Value("${bot.adminedChatId}")
-    String adminedChatId;           //Id чата куда бот будет отправлять сообщения о записи
+    final ChatService chatService;
 
-    /**
-     * <b>Users_session</b>
-     * Словарь пользователей чья сессия сейчас запущена,
-     * ключ - ChatId, значение - User
-     */
+    final ChannelService channelService;
+
+    final RestService restService;
 
 
-    //Данные клавиатур:
-    String[] defaultKeyBoard = new String[]{"О нас", "Получить консультацию"};
-    String[] facultets = new String[]{"ИУ", "СМ", "РК", "МТ", "РЛ", "ИБМ", "ПС", "АК", "РТ", "ФН", "Э", "ЮР", "К", "ЛТ", "СГН", "РКТ", "БМТ"}; // список факультетов
-    String[] callsBacksFacultets = getCallsBackDatas(facultets); // см нижу метод getCallsBackDatas()
 
-
-    public TelegramBot(BotConfig config) {
+    public TelegramBot(BotConfig config,ChatService chatService,RestService restService, ChannelService channelService) {
         this.config = config;
+        this.chatService = chatService;
+        this.restService = restService;
+        this.channelService = channelService;
     }
 
     @Override
@@ -53,43 +51,76 @@ public class TelegramBot extends TelegramLongPollingBot {
         return config.getToken();
     }
 
-    /**
-     * <b>getCallsBackDatas</b>
-     * - метод который преобразовывает массив факультетов в callbackData по нужному формату
-     *
-     * @param Data
-     * @return массив строк для callsBacksData
-     */
-    private String[] getCallsBackDatas(String[] Data) {
-        List<String> callsBacks = new ArrayList<>();
 
-        for (int i = 0; i < Data.length; i++) {
-            callsBacks.add("\\call_" + Data[i]);
-        }
-
-        return callsBacks.toArray(new String[0]);
-    }
 
     @Override
     public void onUpdateReceived(Update update) {
         //   ниже обработка кнопок с клавиатуры в панели и команд в сообщении!
         var message = update.getMessage();
         if (update.hasMessage()) {
+            Chat chat = chatService.findChat(message.getChatId());
+            if(chat == null)
+            {
+               chat = new Chat(message.getChatId(),new ArrayList<>());
+               chatService.saveChat(chat);
+            }
+
             long chatId = message.getChatId();
-            if (message.hasText()) {
-                String messageText = message.getText();
-                deleteMessage(update.getMessage());
-                switch (messageText) {
-                    case "/start":
-                    case "/info":
-                        send(BotMessageService.CreateMessage(chatId, "Я Бот Учебно-методической комиссии"));
+            if(chatId != config.getApiChatId()) {
+                if (message.hasText()) {
+                    String messageText = message.getText();
+                    deleteMessage(update.getMessage());
+                    if(messageText.startsWith("@"))
+                    {
+                        String[] response = restService.sendJoinRequest(messageText);
+                        Channel channel = channelService.findChannel(Long.parseLong(response[1]));
+                        if(channel == null) {
+                            chat.addChannel(new Channel(Long.parseLong(response[1]), response[0], List.of(chat)));
 
-                        break;
-                    case "Назад":
+                        }
+                        else {
+                            channel.addChat(chat);
+                            chat.addChannel(channel);
+                        }
+                        chatService.saveChat(chat);
+                        send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + response[0] + " оформлена"));
 
-                        break;
+                    }
+                    switch (messageText) {
+                        case "/start":
+                        case "/info":
+                            send(BotMessageService.CreateMessage(chatId, "Я Лента бот, и сейчас нахожусь в разработке"));
 
+                            break;
+                        case "/subs":
+                            StringBuilder sb = new StringBuilder();
+
+                            for(Channel channel: chat.getChanelList())
+                            {
+                                sb.append('\n');
+                                sb.append(channel.getTitle());
+                            }
+
+                            send(BotMessageService.CreateMessage(chatId, "Ваши подписки:\n" + sb.toString() ));
+                            break;
+
+                    }
                 }
+            }
+            else {
+
+                Channel channel = channelService.findChannel(update.getMessage().getForwardFromChat().getId());
+                ForwardMessage forwardMessage = new ForwardMessage();
+
+                for(Chat channelChat : channel.getChats())
+                {
+                    forwardMessage.setChatId(channelChat.getChatId());
+                    forwardMessage.setFromChatId(update.getMessage().getChatId());
+                    forwardMessage.setMessageId(update.getMessage().getMessageId());
+                    send(forwardMessage);
+                }
+
+
             }
 
         }
@@ -108,6 +139,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         delMes.setChatId(String.valueOf(mes.getChatId()));
         delMes.setMessageId(mes.getMessageId());
         send(delMes);
+    }
+
+    /**
+     * <b>send</b>
+     * -отправляет в чат созданное сообщение с файлом
+     *
+     * @param messageObj
+     */
+    public void send(ForwardMessage messageObj) {
+        try {
+            execute(messageObj);
+        } catch (TelegramApiException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
 
