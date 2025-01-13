@@ -3,8 +3,6 @@ package com.telegrambot.lentaBot.bot.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.Cascade;
-import org.springframework.context.annotation.Lazy;
 
 import java.util.List;
 
@@ -26,7 +24,7 @@ public class Channel {
 
     @Setter
     @Getter
-    @ManyToMany(cascade = CascadeType.ALL,fetch = FetchType.EAGER)
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinTable(
             name = "chat_channel",
             joinColumns = @JoinColumn(name = "channel_id"),
@@ -43,10 +41,15 @@ public class Channel {
         this.chats = chats;
     }
 
-    public void addChat(Chat chat)
-    {
-        if(chats.stream().noneMatch(x -> x.getChatId().equals(chat.getChatId()))) {
+    public void addChat(Chat chat) {
+        if (chats.stream().noneMatch(x -> x.getChatId().equals(chat.getChatId()))) {
             chats.add(chat);
+        }
+    }
+
+    public void removeChat(Chat chat) {
+        if (chats.stream().anyMatch(x -> x.getChatId().equals(chat.getChatId()))) {
+            chats.remove(chat);
         }
     }
 }

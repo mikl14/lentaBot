@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BotMessageService {
-
-
     public static SendMessage CreateMessage(long chatId, String Text) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
@@ -78,7 +76,7 @@ public class BotMessageService {
         return inlineKeyboardMarkup;
     }
 
-    public static SendMessage createInlineKeyBoardMessage(long chatId, String[] buttonLabels, String[] callBacksDatas,String keyBoardName, int buttonsInRow) {
+    public static SendMessage createInlineKeyBoardMessage(long chatId, String[] buttonLabels, String[] callBacksDatas, String keyBoardName, int buttonsInRow) {
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
 
         List<InlineKeyboardButton> buttonList = new ArrayList<>();
@@ -91,8 +89,6 @@ public class BotMessageService {
 
 
         List<List<InlineKeyboardButton>> rowList = new ArrayList<>();
-
-
 
 
         for (int i = 0; i < buttonList.size(); i += buttonsInRow) {
@@ -116,7 +112,6 @@ public class BotMessageService {
         sendDocument.setDocument(sendFile);
         return sendDocument;
     }
-
 
 
     public static EditMessageReplyMarkup setButtons(Long chatId, int messageId, String[] buttons) {
