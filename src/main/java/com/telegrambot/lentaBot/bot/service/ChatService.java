@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ChatService {
@@ -29,8 +28,7 @@ public class ChatService {
         return chatRepository.findByChatId(chatId).orElse(null);
     }
 
-    public List<Chat> findChatByChannelId(long channelId)
-    {
+    public List<Chat> findChatByChannelId(long channelId) {
         return chatRepository.findChatByChannelId(channelId);
     }
 

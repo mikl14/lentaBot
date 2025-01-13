@@ -1,7 +1,6 @@
 package com.telegrambot.lentaBot.bot.service;
 
 import com.telegrambot.lentaBot.bot.entity.Channel;
-import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.repository.ChannelRepository;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -14,11 +13,11 @@ public class ChannelService {
         this.channelRepository = channelRepository;
     }
 
-    public void SaveChat(Channel channel) {
+    public void SaveChannel(Channel channel) {
         channelRepository.save(channel);
     }
 
-    public void DeleteChat(Channel channel) {
+    public void DeleteChannel(Channel channel) {
         channelRepository.delete(channel);
     }
 

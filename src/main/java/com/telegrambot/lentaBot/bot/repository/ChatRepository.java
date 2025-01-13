@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ChatRepository  extends JpaRepository<Chat,Long> {
+public interface ChatRepository extends JpaRepository<Chat, Long> {
     List<Chat> findById(Integer id);
 
     Optional<Chat> findByChatId(Long chatId);
