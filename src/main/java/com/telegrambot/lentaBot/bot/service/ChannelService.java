@@ -24,4 +24,6 @@ public class ChannelService {
     public Channel findChannel(long chatId) {
         return channelRepository.findByChatId(chatId).orElse(null);
     }
+
+    public Channel findChannelByInviteLink(String inviteLink) {return channelRepository.findByInviteLink(inviteLink).orElse(null);}
 }

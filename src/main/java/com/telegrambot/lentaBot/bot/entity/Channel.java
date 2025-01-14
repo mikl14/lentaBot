@@ -21,6 +21,9 @@ public class Channel {
     @Getter
     private String title;
 
+    @Setter
+    @Getter
+    private String inviteLink;
 
     @Setter
     @Getter
@@ -38,6 +41,13 @@ public class Channel {
     public Channel(Long chatId, String title, List<Chat> chats) {
         this.chatId = chatId;
         this.title = title;
+        this.chats = chats;
+    }
+
+    public Channel(Long chatId, String title, String inviteLink, List<Chat> chats) {
+        this.chatId = chatId;
+        this.title = title;
+        this.inviteLink = inviteLink;
         this.chats = chats;
     }
 

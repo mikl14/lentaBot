@@ -15,7 +15,7 @@ public class RestService {
 
     private final BotConfig config;
 
-    Logger logger = Logger.getLogger(TelegramBot.class.getName());
+    Logger logger = Logger.getLogger(RestService.class.getName());
 
     public RestService(RestTemplate restTemplate, BotConfig config) {
         this.restTemplate = restTemplate;
@@ -40,7 +40,7 @@ public class RestService {
 
         logger.info("sending join request in channel: " + Body);
         try {
-            String response = restTemplate.postForObject(url, requestEntity, String.class);
+            String response = restTemplate.postForObject(url+"/joinChat", requestEntity, String.class);
 
             if (!response.equals("no_chat")) {
                 return response.split(";");
@@ -49,6 +49,39 @@ public class RestService {
             logger.warning("Connect with telegram user service is trouble!");
         }
         logger.warning("Chat with name " + Body + " can't be found!");
+        return null;
+    }
+
+    /**
+     * <b>sendPrivateJoinRequest</b> - отправляет запрос на вступление в закрытую группу по ссылке
+     *
+     * @param Body ссылка на открытый канал в формате ссылки приглашения
+     * @return массив из 3х строк title , chatId и inviteLink
+     */
+    public String[] sendPrivateJoinRequest(String Body) {
+
+        String url = config.getApiUrl();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> requestEntity = new HttpEntity<>(Body, headers);
+
+        logger.info("sending join request in private channel with link: " + Body);
+        try {
+            String response = restTemplate.postForObject(url+"/joinPrivateChat", requestEntity, String.class);
+
+            if (!response.equals("chat_is_already")) {
+                return response.split(";");
+            }
+            else
+            {
+                logger.warning("Private chat is already joined " + Body + " fatal!");
+            }
+        } catch (Exception e) {
+            logger.warning("Connect with telegram user service is trouble!");
+        }
+        logger.warning("Chat with link " + Body + " can't be found!");
         return null;
     }
 }
