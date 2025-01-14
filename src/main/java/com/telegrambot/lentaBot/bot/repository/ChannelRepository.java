@@ -12,4 +12,6 @@ public interface ChannelRepository extends JpaRepository<Channel, Long> {
     List<Channel> findById(Integer id);
 
     Optional<Channel> findByChatId(Long chatId);
+
+    Optional<Channel> findByInviteLink(String inviteLink);
 }
