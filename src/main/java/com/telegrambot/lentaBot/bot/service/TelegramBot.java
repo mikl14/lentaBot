@@ -65,28 +65,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                     String messageText = message.getText();
                     //deleteMessage(update.getMessage());
 
-                    if (messageText.startsWith("@") || messageText.startsWith("https://t.me/")) { // если сообщения начались в такого формата значит это ссылки на группы
-                        if (messageText.startsWith("https://t.me/")) {
-                            messageText = messageText.replace("https://t.me/", "@");
-                        }
-                        String[] response = restService.sendJoinRequest(messageText);
-                        if (response == null) {
-                            send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки"));
-                        } else {
-                            Channel channel = channelService.findChannel(Long.parseLong(response[1]));
-                            if (channel == null) {
-                                chat.addChannel(new Channel(Long.parseLong(response[1]), response[0], List.of(chat)));
-
-                            } else {
-                                channel.addChat(chat);
-                                chat.addChannel(channel);
-                            }
-                            chatService.saveChat(chat);
-                            send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + response[0] + " оформлена"));
-                        }
-
-                    }
-
                     switch (messageText) { // обработка команд в текстовых сообщениях
                         case "/start":
                             send(BotMessageService.CreateMessage(chatId, "Я Лента бот, сделаю из любого вашего чата ленту новостей! '\n' Добавляйте меня в чаты в качестве администратора, чтобы сделать из него ленту новостей '\n' Добавляйте своих друзей в свои ленты или делайте тематические ленты"));
@@ -110,6 +88,20 @@ public class TelegramBot extends TelegramLongPollingBot {
                             send(BotMessageService.CreateMessage(chatId, "Ваши подписки:\n" + sb.toString() + " \n\n Для отписки напишите команду /unsub и номер канала в списке \n Пример: /unsub 1"));
                             break;
                         default:
+                            if(update.getMessage().getChatId().equals(config.getAdminChatId()) && messageText.startsWith("/alert"))
+                            {
+                                List<Chat> chats = chatService.getAllChats();
+                                logger.info("Alert in all channels !");
+
+                                SendMessage sendMessage = new SendMessage();
+
+                                for (Chat currentChat : chats) {
+                                    sendMessage.setChatId(currentChat.getChatId());
+                                    sendMessage.setText(messageText.replace("/alert",""));
+                                    send(sendMessage);
+                                }
+                            }
+
                             if (messageText.startsWith("/unsub")) { // это команда нужна для отписки и имеет после себя номер канала
                                 if (messageText.split(" ").length == 2) {
                                     int index = Integer.parseInt(messageText.split(" ")[1]) - 1;
@@ -128,26 +120,21 @@ public class TelegramBot extends TelegramLongPollingBot {
                                 }
                             }
 
-                            if(messageText.startsWith("/sub_private"))
-                            {
+                            if (messageText.startsWith("/sub_private")) {
                                 if (messageText.split(" ").length == 2) {
 
                                     String link = messageText.split(" ")[1];
                                     Channel channel = channelService.findChannelByInviteLink(link);
-                                    if(channel != null) {
+                                    if (channel != null) {
                                         channel.addChat(chat);
                                         chat.addChannel(channel);
                                         chatService.saveChat(chat);
                                         send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
-                                    }
-                                    else
-                                    {
+                                    } else {
                                         String[] response = restService.sendPrivateJoinRequest(link);
                                         if (response == null) {
                                             send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки"));
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             channel = new Channel(Long.parseLong(response[1]), response[0], response[2], List.of(chat));
                                             chat.addChannel(channel);
                                             channel.addChat(chat);
@@ -159,27 +146,71 @@ public class TelegramBot extends TelegramLongPollingBot {
                                 } else {
                                     send(BotMessageService.CreateMessage(chatId, "Чтобы подписаться на приватный канал используйте команду в формате \"/sub_private invite_link\" "));
                                 }
-
-
                             }
+
+                            if (messageText.startsWith("/sub")) {
+                                if (messageText.split(" ").length == 2) {
+
+                                    if (messageText.startsWith("@")) {
+                                        messageText = messageText.replace("@", "https://t.me/");
+                                    }
+                                    String link = messageText.split(" ")[1];
+                                    Channel channel = channelService.findChannelByInviteLink(link);
+
+                                    if (channel != null) {
+                                        channel.addChat(chat);
+                                        chat.addChannel(channel);
+                                        chatService.saveChat(chat);
+                                        send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
+                                    } else {
+                                        String[] response = restService.sendJoinRequest(link);
+                                        if (response == null) {
+                                            send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки"));
+                                        } else {
+                                            channel = channelService.findChannel(Long.parseLong(response[1]));
+                                            if (channel != null) {
+                                                channel.setInviteLink(link);
+                                                channel.addChat(chat);
+                                                channelService.saveChannel(channel);
+
+                                                logger.info("Fixed chat link in channel: " + channel.getTitle());
+                                            } else {
+                                                channel = new Channel(Long.parseLong(response[1]), response[0], link, List.of(chat));
+                                                chat.addChannel(channel);
+                                                channel.addChat(chat);
+                                                chatService.saveChat(chat);
+                                            }
+                                            send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + response[0] + " оформлена"));
+                                        }
+                                    }
+
+                                } else {
+                                    send(BotMessageService.CreateMessage(chatId, "Чтобы подписаться на открытый канал используйте команду в формате \"/sub link\" "));
+                                }
+                            }
+
                     }
                 }
             } else { // сюда попадаем в случае если сообщение из чата сервиса
-                Channel channel = channelService.findChannel(update.getMessage().getForwardFromChat().getId());
-                logger.info("New post from channel : " + channel.getTitle() + " chatId :" + channel.getChatId());
-                ForwardMessage forwardMessage = new ForwardMessage();
+                try {
+                    Channel channel = channelService.findChannel(update.getMessage().getForwardFromChat().getId());
+                    logger.info("New post from channel : " + channel.getTitle() + " chatId :" + channel.getChatId());
+                    ForwardMessage forwardMessage = new ForwardMessage();
 
-                if (channel.getChats().isEmpty()) {
-                    logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+                    if (channel.getChats().isEmpty()) {
+                        logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+                    }
+                    for (Chat channelChat : channel.getChats()) {
+                        forwardMessage.setChatId(channelChat.getChatId());
+                        forwardMessage.setFromChatId(update.getMessage().getChatId());
+                        forwardMessage.setMessageId(update.getMessage().getMessageId());
+                        send(forwardMessage);
+                    }
                 }
-                for (Chat channelChat : channel.getChats()) {
-                    forwardMessage.setChatId(channelChat.getChatId());
-                    forwardMessage.setFromChatId(update.getMessage().getChatId());
-                    forwardMessage.setMessageId(update.getMessage().getMessageId());
-                    send(forwardMessage);
-                }
-
-
+               catch (Exception e)
+               {
+                   logger.info("Channel not found in base: !");
+               }
             }
 
         }
