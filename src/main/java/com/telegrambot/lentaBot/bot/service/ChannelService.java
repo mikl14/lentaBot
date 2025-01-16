@@ -2,8 +2,12 @@ package com.telegrambot.lentaBot.bot.service;
 
 import com.telegrambot.lentaBot.bot.entity.Channel;
 import com.telegrambot.lentaBot.bot.repository.ChannelRepository;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class ChannelService {
@@ -13,7 +17,7 @@ public class ChannelService {
         this.channelRepository = channelRepository;
     }
 
-    public void SaveChannel(Channel channel) {
+    public void saveChannel(Channel channel) {
         channelRepository.save(channel);
     }
 
@@ -26,4 +30,8 @@ public class ChannelService {
     }
 
     public Channel findChannelByInviteLink(String inviteLink) {return channelRepository.findByInviteLink(inviteLink).orElse(null);}
+
+    public List<Channel> getAllChannels() {
+        return channelRepository.findAll();
+    }
 }
