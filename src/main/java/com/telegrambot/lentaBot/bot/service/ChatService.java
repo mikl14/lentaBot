@@ -1,6 +1,7 @@
 package com.telegrambot.lentaBot.bot.service;
 
 
+import com.telegrambot.lentaBot.bot.entity.Channel;
 import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.repository.ChatRepository;
 import org.springframework.context.annotation.Lazy;
@@ -32,5 +33,7 @@ public class ChatService {
         return chatRepository.findChatByChannelId(channelId);
     }
 
-
+    public List<Chat> getAllChats() {
+        return chatRepository.findAll();
+    }
 }
