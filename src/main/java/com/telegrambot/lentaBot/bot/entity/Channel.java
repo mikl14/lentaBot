@@ -27,7 +27,7 @@ public class Channel {
 
     @Setter
     @Getter
-    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @ManyToMany( fetch = FetchType.EAGER)
     @JoinTable(
             name = "chat_channel",
             joinColumns = @JoinColumn(name = "channel_id"),
