@@ -1,6 +1,7 @@
 package com.telegrambot.lentaBot.bot.service;
 
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
@@ -15,6 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BotMessageService {
+
+    public static SendMessage CreateMessage(long chatId, String Text, String ParseMode) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(Text);
+        message.setParseMode(ParseMode);
+        return message;
+    }
     public static SendMessage CreateMessage(long chatId, String Text) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
