@@ -19,7 +19,7 @@ public class Chat {
 
     @Setter
     @Getter
-    @ManyToMany(mappedBy = "chats", cascade = jakarta.persistence.CascadeType.ALL, fetch = FetchType.EAGER)
+    @ManyToMany(mappedBy = "chats", fetch = FetchType.EAGER)
     private List<Channel> chanelList;
 
     public Chat() {

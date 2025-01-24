@@ -84,4 +84,37 @@ public class RestService {
         logger.warning("Chat with link " + Body + " can't be found!");
         return null;
     }
+
+
+    /**
+     * <b>sendJoinRequest</b> - отправляет запрос на вступление в открытую группу по ссылке
+     *
+     * @param chatId ссылка на открытый канал в формате @name
+     * @return массив из 2х строк title и chatId
+     */
+
+    public String[] sendLeaveRequest(Long chatId) {
+
+        String id = chatId.toString();
+        String url = config.getApiUrl();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> requestEntity = new HttpEntity<>(id, headers);
+
+        logger.info("sending join request in channel: " + id);
+        try {
+            String response = restTemplate.postForObject(url+"/leaveChat", requestEntity, String.class);
+
+            if (!response.equals("no_chat")) {
+                return response.split(";");
+            }
+        } catch (Exception e) {
+            logger.warning("Connect with telegram user service is trouble!");
+        }
+        logger.warning("Chat with name " + id + " can't be found!");
+        return null;
+    }
+
 }
