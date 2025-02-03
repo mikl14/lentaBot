@@ -3,6 +3,7 @@ package com.telegrambot.lentaBot.bot.service;
 import com.telegrambot.lentaBot.bot.config.BotConfig;
 import com.telegrambot.lentaBot.bot.entity.Channel;
 import com.telegrambot.lentaBot.bot.entity.Chat;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
@@ -11,10 +12,13 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.media.*;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 @Component
@@ -24,6 +28,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     final ChannelService channelService;
     final RestService restService;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
+
+    Map<Long, List<Message>> messageMap = new HashMap<>();
 
     public TelegramBot(BotConfig config, ChatService chatService, RestService restService, ChannelService channelService) {
         this.config = config;
@@ -190,19 +196,30 @@ public class TelegramBot extends TelegramLongPollingBot {
                 try {
                     Channel channel = channelService.findChannel(update.getMessage().getForwardFromChat().getId());
                     logger.info("New post from channel : " + channel.getTitle() + " chatId :" + channel.getChatId());
-                    SendMediaGroup sendMediaGroup = new SendMediaGroup();
-                    // if(update.getMessage().getMediaGroupId())
-                    ForwardMessage forwardMessage = new ForwardMessage();
+                    long mediaId = 0;
+                    if (message.getMediaGroupId() != null) {
+                        mediaId = Long.parseLong(message.getMediaGroupId());
+                    }
 
-                    if (channel.getChats().isEmpty()) {
-                        logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+
+                    if (mediaId != 0) {
+                        if (messageMap.containsKey(mediaId)) {
+                            try {
+                                List<Message> messageList = messageMap.get(mediaId);
+                                messageList.add(message);
+                            } catch (Exception e) {
+                                logger.warning("Error on grouping MessageGroup!");
+                            }
+
+                        } else {
+                            List<Message> messageList = new ArrayList<>();
+                            messageList.add(message);
+                            messageMap.put(mediaId, messageList);
+                        }
+                    } else {
+                        sendInChats(channel, update.getMessage());
                     }
-                    for (Chat channelChat : channel.getChats()) {
-                        forwardMessage.setChatId(channelChat.getChatId());
-                        forwardMessage.setFromChatId(update.getMessage().getChatId());
-                        forwardMessage.setMessageId(update.getMessage().getMessageId());
-                        send(forwardMessage);
-                    }
+
                 } catch (Exception e) {
                     logger.info("Channel not found in base: !");
                 }
@@ -233,6 +250,80 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
             }
 
+        }
+    }
+
+    /**
+     * <b>sendMediaGroups</b>
+     * каждые 5 секунд отправляет накопленные медиа коллекции и отчищает список
+     */
+    @Scheduled(fixedRate = 5000)
+    public void sendMediaGroups() {
+        if (!messageMap.isEmpty()) {
+            for (long key : messageMap.keySet()) {
+                Channel channel = channelService.findChannel(messageMap.get(key).get(0).getForwardFromChat().getId());
+
+
+                List<InputMedia> mediaPhotos = new ArrayList<>();
+                for (Message mes : messageMap.get(key)) {
+                    if (mes.hasPhoto()) {
+                        mediaPhotos.add(new InputMediaPhoto(mes.getPhoto().get(0).getFileId()));
+                    }
+                    if (mes.hasVideo()) {
+                        mediaPhotos.add(new InputMediaVideo(mes.getVideo().getFileId()));
+                    }
+                    if (mes.hasAudio()) {
+                        mediaPhotos.add(new InputMediaAudio(mes.getAudio().getFileId()));
+                    }
+                    if (mes.hasAnimation()) {
+                        mediaPhotos.add(new InputMediaAnimation(mes.getAnimation().getFileId()));
+                    }
+
+                }
+
+                mediaPhotos.get(0).setCaption(messageMap.get(key).get(0).getCaption());
+                // Отправляем медиагруппу (если нужно отправить несколько фотографий)
+                sendInChats(channel, mediaPhotos);
+
+            }
+            messageMap.clear();
+        }
+    }
+
+    public void sendInChats(Channel channel, Message message) {
+        ForwardMessage forwardMessage = new ForwardMessage();
+
+        if (channel.getChats().isEmpty()) {
+            logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+        }
+        for (Chat channelChat : channel.getChats()) {
+            forwardMessage.setChatId(channelChat.getChatId());
+            forwardMessage.setFromChatId(message.getChatId());
+            forwardMessage.setMessageId(message.getMessageId());
+            forwardMessage.setMessageThreadId(message.getMessageThreadId());
+
+            send(forwardMessage);
+        }
+    }
+
+    public void sendInChats(Channel channel, List<InputMedia> mediaPhotos) {
+        SendMediaGroup sendMediaGroup = new SendMediaGroup();
+
+        if (channel.getChats().isEmpty()) {
+            logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+        }
+        for (Chat channelChat : channel.getChats()) {
+            sendMediaGroup.setChatId(String.valueOf(channelChat.getChatId()));
+            sendMediaGroup.setMedias(mediaPhotos);
+            send(sendMediaGroup);
+        }
+    }
+
+    private void send(SendMediaGroup sendMediaGroup) {
+        try {
+            execute(sendMediaGroup);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
         }
     }
 
