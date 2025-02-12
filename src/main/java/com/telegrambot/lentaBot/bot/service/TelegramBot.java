@@ -7,9 +7,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
-import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethodMessage;
+import org.telegram.telegrambots.meta.api.methods.send.*;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.media.*;
@@ -20,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
@@ -27,15 +28,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     final ChatService chatService;
     final ChannelService channelService;
     final RestService restService;
+
+    final MessageBuilder messageBuilder;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, ChatService chatService, RestService restService, ChannelService channelService) {
+    public TelegramBot(BotConfig config, ChatService chatService, RestService restService, ChannelService channelService, MessageBuilder messageBuilder) {
         this.config = config;
         this.chatService = chatService;
         this.restService = restService;
         this.channelService = channelService;
+        this.messageBuilder = messageBuilder;
     }
 
     @Override
@@ -221,7 +225,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     }
 
                 } catch (Exception e) {
-                    logger.info("Channel not found in base: !");
+                    logger.info("Channel not found in base: !" + e);
                 }
             }
 
@@ -281,7 +285,11 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 }
 
-                mediaPhotos.get(0).setCaption(messageMap.get(key).get(0).getCaption());
+                if (messageMap.get(key).get(0).getCaption() != null) {
+                    mediaPhotos.get(0).setCaption(messageMap.get(key).get(0).getCaption() + "\n#" + messageMap.get(key).get(0).getForwardFromChat().getTitle() + "\n Источник: " + channel.getInviteLink());
+                } else {
+                    mediaPhotos.get(0).setCaption("#" + replaceSpecialChars(messageMap.get(key).get(0).getForwardFromChat().getTitle()) + "\n Источник: " + channel.getInviteLink());
+                }
                 // Отправляем медиагруппу (если нужно отправить несколько фотографий)
                 sendInChats(channel, mediaPhotos);
 
@@ -291,18 +299,24 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     public void sendInChats(Channel channel, Message message) {
-        ForwardMessage forwardMessage = new ForwardMessage();
 
-        if (channel.getChats().isEmpty()) {
-            logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
-        }
-        for (Chat channelChat : channel.getChats()) {
-            forwardMessage.setChatId(channelChat.getChatId());
-            forwardMessage.setFromChatId(message.getChatId());
-            forwardMessage.setMessageId(message.getMessageId());
-            forwardMessage.setMessageThreadId(message.getMessageThreadId());
+        SendMediaBotMethod<Message> sendMediaBotMethod = messageBuilder.createMessage(message);
 
-            send(forwardMessage);
+        if (sendMediaBotMethod == null) {
+            BotApiMethodMessage botApiMethodMessage = messageBuilder.createApiMessage(message);
+            if (channel.getChats().isEmpty()) {
+                logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+            }
+            for (Chat channelChat : channel.getChats()) {
+                send(botApiMethodMessage, channelChat.getChatId(), channel);
+            }
+        } else {
+            if (channel.getChats().isEmpty()) {
+                logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
+            }
+            for (Chat channelChat : channel.getChats()) {
+                send(sendMediaBotMethod, channelChat.getChatId(), channel);
+            }
         }
     }
 
@@ -341,11 +355,151 @@ public class TelegramBot extends TelegramLongPollingBot {
         chatService.saveChat(chat);
     }
 
-    public void deleteMessage(Message mes) {
-        DeleteMessage delMes = new DeleteMessage();
-        delMes.setChatId(String.valueOf(mes.getChatId()));
-        delMes.setMessageId(mes.getMessageId());
-        send(delMes);
+    /**
+     * <b>send</b>
+     * -отправляет в чат пересланное сообщение
+     *
+     * @param messageObj
+     */
+    public void send(SendMediaBotMethod<Message> messageObj, long chatId, Channel channel) {
+
+        StringBuilder caption = new StringBuilder("\n#" + replaceSpecialChars(channel.getTitle()) + "\n Источник: " + channel.getInviteLink());
+
+        switch (messageObj.getClass().getSimpleName()) {
+
+            case "SendPhoto": {
+                try {
+                    ((SendPhoto) messageObj).setChatId(chatId);
+
+                    if (((SendPhoto) messageObj).getCaption() != null) {
+                        if (!((SendPhoto) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendPhoto) messageObj).setCaption(((SendPhoto) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendPhoto) messageObj).setCaption(caption.toString());
+                    }
+
+                    ((SendPhoto) messageObj).setParseMode("HTML");
+                    execute((SendPhoto) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendVideo": {
+                try {
+
+                    assert messageObj instanceof SendVideo;
+                    ((SendVideo) messageObj).setChatId(chatId);
+                    if (((SendVideo) messageObj).getCaption() != null) {
+                        if (!((SendVideo) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendVideo) messageObj).setCaption(((SendVideo) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendVideo) messageObj).setCaption(caption.toString());
+                    }
+
+                    execute((SendVideo) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendAudio": {
+                try {
+                    assert messageObj instanceof SendAudio;
+                    ((SendAudio) messageObj).setChatId(chatId);
+
+                    if (((SendAudio) messageObj).getCaption() != null) {
+                        if (!((SendAudio) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendAudio) messageObj).setCaption(((SendAudio) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendAudio) messageObj).setCaption(caption.toString());
+                    }
+
+                    execute((SendAudio) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendVoice": {
+                try {
+                    assert messageObj instanceof SendVoice;
+                    ((SendVoice) messageObj).setChatId(chatId);
+                    if (((SendVoice) messageObj).getCaption() != null) {
+                        if (!((SendVoice) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendVoice) messageObj).setCaption(((SendVoice) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendVoice) messageObj).setCaption(caption.toString());
+                    }
+                    execute((SendVoice) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendVideoNote": {
+                try {
+                    assert messageObj instanceof SendVideoNote;
+                    ((SendVideoNote) messageObj).setChatId(chatId);
+                    execute((SendVideoNote) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendAnimation": {
+                try {
+                    assert messageObj instanceof SendAnimation;
+                    ((SendAnimation) messageObj).setChatId(chatId);
+                    if (((SendAnimation) messageObj).getCaption() != null) {
+                        if (!((SendAnimation) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendAnimation) messageObj).setCaption(((SendAnimation) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendAnimation) messageObj).setCaption(caption.toString());
+                    }
+                    execute((SendAnimation) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendDocument": {
+                try {
+                    assert messageObj instanceof SendDocument;
+                    ((SendDocument) messageObj).setChatId(chatId);
+                    if (((SendDocument) messageObj).getCaption() != null) {
+                        if (!((SendDocument) messageObj).getCaption().endsWith(caption.toString())) {
+                            ((SendDocument) messageObj).setCaption(((SendDocument) messageObj).getCaption() + caption);
+                        }
+                    } else {
+                        ((SendDocument) messageObj).setCaption(caption.toString());
+                    }
+                    execute((SendDocument) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+
+            case "SendSticker": {
+                try {
+                    assert messageObj instanceof SendSticker;
+                    ((SendSticker) messageObj).setChatId(chatId);
+                    execute((SendSticker) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+
+        }
+
+
     }
 
     /**
@@ -354,14 +508,57 @@ public class TelegramBot extends TelegramLongPollingBot {
      *
      * @param messageObj
      */
-    public void send(ForwardMessage messageObj) {
-        try {
-            execute(messageObj);
-        } catch (TelegramApiException ex) {
-            throw new RuntimeException(ex);
+    public void send(BotApiMethodMessage messageObj, long chatId, Channel channel) {
+
+        StringBuilder caption = new StringBuilder("\n#" + replaceSpecialChars(channel.getTitle()) + "\n Источник: " + channel.getInviteLink());
+
+
+        switch (messageObj.getClass().getSimpleName()) {
+
+            case "SendMessage": {
+                try {
+                    ((SendMessage) messageObj).setChatId(chatId);
+                    if (!((SendMessage) messageObj).getText().endsWith(caption.toString())) {
+                        ((SendMessage) messageObj).setText(((SendMessage) messageObj).getText() + caption);
+                    }
+                    execute((SendMessage) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "ForwardMessage": {
+                try {
+                    assert messageObj instanceof ForwardMessage;
+                    ((ForwardMessage) messageObj).setChatId(chatId);
+                    execute((ForwardMessage) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
+            case "SendLocation": {
+                try {
+                    assert messageObj instanceof SendLocation;
+                    ((SendLocation) messageObj).setChatId(chatId);
+                    execute((SendLocation) messageObj);
+                } catch (TelegramApiException ex) {
+                    throw new RuntimeException(ex);
+                }
+                break;
+            }
         }
     }
 
+    public static String replaceSpecialChars(String str) {
+        // Регулярное выражение для поиска любых символов, не являющихся буквами или цифрами
+        Pattern pattern = Pattern.compile("[^a-zA-Z0-9\\s]");
+
+        // Заменяем все найденные символы на подчеркивание
+        Matcher matcher = pattern.matcher(str);
+
+        return matcher.replaceAll("_");
+    }
 
     /**
      * <b>send</b>
@@ -377,19 +574,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    /**
-     * <b>send</b>
-     * - реализует удаление заданного в обьекте сообщения
-     *
-     * @param messageObj
-     */
-    public void send(DeleteMessage messageObj) {
-        try {
-            execute(messageObj);
-        } catch (TelegramApiException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
 }
 
 
