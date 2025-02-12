@@ -552,12 +552,14 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public static String replaceSpecialChars(String str) {
         // Регулярное выражение для поиска любых символов, не являющихся буквами или цифрами
-        Pattern pattern = Pattern.compile("[^a-zA-Z0-9\\s]");
+        Pattern pattern = Pattern.compile("[^a-zA-Zа-яА-Я0-9\\s]");
 
         // Заменяем все найденные символы на подчеркивание
         Matcher matcher = pattern.matcher(str);
 
-        return matcher.replaceAll("_");
+        String res =  matcher.replaceAll("_");
+        if(res.contains(" ")) res = res.replace(" ","_");
+        return res;
     }
 
     /**

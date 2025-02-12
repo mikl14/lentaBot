@@ -53,6 +53,7 @@ public class MessageBuilder {
                 SendDocument document = new SendDocument();
                 document.setCaption(message.getCaption());
                 document.setDocument(new InputFile(message.getDocument().getFileId()));
+
                 return document;
             }
             if(message.hasSticker())
@@ -85,6 +86,7 @@ public class MessageBuilder {
             {
                 SendMessage text = new SendMessage();
                 text.setText(message.getText());
+                text.disableWebPagePreview();
                 return text;
             }
         }
