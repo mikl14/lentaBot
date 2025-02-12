@@ -22,12 +22,14 @@ public class BotMessageService {
         message.setChatId(String.valueOf(chatId));
         message.setText(Text);
         message.setParseMode(ParseMode);
+        message.disableWebPagePreview();
         return message;
     }
     public static SendMessage CreateMessage(long chatId, String Text) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(Text);
+        message.disableWebPagePreview();
         return message;
     }
 
