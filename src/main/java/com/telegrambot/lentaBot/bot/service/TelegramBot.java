@@ -27,19 +27,21 @@ public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
     final ChatService chatService;
     final ChannelService channelService;
-    final RestService restService;
+    final TelegramRestService telegramRestService;
+    final DataBaseRestService dataBaseRestService;
 
     final MessageBuilder messageBuilder;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, ChatService chatService, RestService restService, ChannelService channelService, MessageBuilder messageBuilder) {
+    public TelegramBot(BotConfig config, ChatService chatService, TelegramRestService telegramRestService, ChannelService channelService, MessageBuilder messageBuilder,DataBaseRestService dataBaseRestService) {
         this.config = config;
         this.chatService = chatService;
-        this.restService = restService;
+        this.telegramRestService = telegramRestService;
         this.channelService = channelService;
         this.messageBuilder = messageBuilder;
+        this.dataBaseRestService = dataBaseRestService;
     }
 
     @Override
@@ -64,10 +66,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage()) {  // проверяем есть ли сообщение
             var message = update.getMessage();
             logger.info("New message, from chat: " + message.getChatId());
-            Chat chat = chatService.findChat(message.getChatId());
+
+            Chat chat = dataBaseRestService.getChatByChatId(message.getChatId());
             if (chat == null) {
                 chat = new Chat(message.getChatId(), new ArrayList<>());
-                chatService.saveChat(chat);
+                if(!dataBaseRestService.saveChat(chat)) logger.warning("Trouble on Save User On DatabaseService!");
             }
 
             long chatId = message.getChatId();
@@ -134,7 +137,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                                         if (channel.getChats().isEmpty()) {
                                             channelService.DeleteChannel(channel);
-                                            restService.sendLeaveRequest(channel.getChatId());
+                                            telegramRestService.sendLeaveRequest(channel.getChatId());
                                         }
                                         send(BotMessageService.CreateMessage(chatId, "Вы отписались от канала " + channel.getTitle()));
                                     }
@@ -152,7 +155,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                                         saveChannelAndChat(channel, chat);
                                         send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
                                     } else {
-                                        String[] response = restService.sendPrivateJoinRequest(link);
+                                        String[] response = telegramRestService.sendPrivateJoinRequest(link);
                                         if (response == null) {
                                             send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки для подписки на публичный канал используйте \" /sub channelLink\""));
                                         } else {
@@ -179,7 +182,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                                         saveChannelAndChat(channel, chat);
                                         send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
                                     } else {
-                                        String[] response = restService.sendJoinRequest(link);
+                                        String[] response = telegramRestService.sendJoinRequest(link);
                                         if (response == null) {
                                             send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки, для подписки на приватный канал используйте \" /private_sub invite_link\""));
                                         } else {
@@ -361,7 +364,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      *
      * @param messageObj
      */
-    public void send(SendMediaBotMethod<Message> messageObj, long chatId, Channel channel) {
+    public void send(SendMediaBotMethod<Message>  messageObj, long chatId, Channel channel) {
 
         StringBuilder caption = new StringBuilder("\n#" + replaceSpecialChars(channel.getTitle()) + "\n Источник: " + channel.getInviteLink());
 

@@ -10,14 +10,14 @@ import org.springframework.web.client.RestTemplate;
 import java.util.logging.Logger;
 
 @Service
-public class RestService {
+public class TelegramRestService {
     private final RestTemplate restTemplate;
 
     private final BotConfig config;
 
-    Logger logger = Logger.getLogger(RestService.class.getName());
+    Logger logger = Logger.getLogger(TelegramRestService.class.getName());
 
-    public RestService(RestTemplate restTemplate, BotConfig config) {
+    public TelegramRestService(RestTemplate restTemplate, BotConfig config) {
         this.restTemplate = restTemplate;
         this.config = config;
     }

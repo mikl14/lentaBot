@@ -24,6 +24,8 @@ repositories {
 }
 
 dependencies {
+	implementation group: 'aspectj', name: 'aspectjweaver', version: '1.5.4'
+	implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.18.2'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

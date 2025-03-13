@@ -14,7 +14,6 @@ public class BotConfig {
     @Value("${bot.name}")
     String botName;
 
-
     @Getter
     @Value("${bot.token}")
     String token;
@@ -26,6 +25,10 @@ public class BotConfig {
     @Getter
     @Value("${bot.apiUrl}")
     String apiUrl;
+
+    @Getter
+    @Value("${bot.databaseUrl}")
+    String databaseUrl;
 
     @Getter
     @Value("${bot.adminChatId}")
