@@ -1,4 +1,4 @@
-package com.telegrambot.lentaBot.bot.service;
+package com.telegrambot.lentaBot.bot.service.message;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;

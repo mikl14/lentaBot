@@ -1,5 +1,6 @@
 package com.telegrambot.lentaBot.bot.service;
 
+import com.telegrambot.lentaBot.bot.annotations.Logging;
 import com.telegrambot.lentaBot.bot.config.BotConfig;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +30,7 @@ public class RestService {
      * @return массив из 2х строк title и chatId
      */
 
+    @Logging(entering = true,returnData = true)
     public String[] sendJoinRequest(String Body) {
 
         String url = config.getApiUrl();
@@ -58,6 +60,7 @@ public class RestService {
      * @param Body ссылка на открытый канал в формате ссылки приглашения
      * @return массив из 3х строк title , chatId и inviteLink
      */
+    @Logging(entering = true,returnData = true)
     public String[] sendPrivateJoinRequest(String Body) {
 
         String url = config.getApiUrl();
@@ -92,7 +95,7 @@ public class RestService {
      * @param chatId ссылка на открытый канал в формате @name
      * @return массив из 2х строк title и chatId
      */
-
+    @Logging(entering = true,returnData = true)
     public String[] sendLeaveRequest(Long chatId) {
 
         String id = chatId.toString();
