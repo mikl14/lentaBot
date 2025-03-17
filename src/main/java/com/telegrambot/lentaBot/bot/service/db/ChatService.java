@@ -1,4 +1,4 @@
-package com.telegrambot.lentaBot.bot.service;
+package com.telegrambot.lentaBot.bot.service.db;
 
 
 import com.telegrambot.lentaBot.bot.entity.Channel;
