@@ -67,8 +67,10 @@ public class LogAspect {
 
         }
         if (logging.returnData()) {
-            logMap.put("return", result.toString());
-            logger.log(Level.valueOf(logging.level()), result.toString());
+            if(result != null) {
+                logMap.put("return", result.toString());
+                logger.log(Level.valueOf(logging.level()), result.toString());
+            }
         }
         if (logging.exiting() || logging.entering()) {
             try {
