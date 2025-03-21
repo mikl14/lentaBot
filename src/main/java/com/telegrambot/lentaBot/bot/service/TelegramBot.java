@@ -3,8 +3,7 @@ package com.telegrambot.lentaBot.bot.service;
 import com.telegrambot.lentaBot.bot.config.BotConfig;
 import com.telegrambot.lentaBot.bot.entity.Channel;
 import com.telegrambot.lentaBot.bot.entity.Chat;
-import com.telegrambot.lentaBot.bot.service.db.ChannelService;
-import com.telegrambot.lentaBot.bot.service.db.ChatService;
+import com.telegrambot.lentaBot.bot.service.db.DataBaseRestService;
 import com.telegrambot.lentaBot.bot.service.message.BotMessageService;
 import com.telegrambot.lentaBot.bot.service.message.MessageBuilder;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,21 +28,21 @@ import java.util.regex.Pattern;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
-    final ChatService chatService;
-    final ChannelService channelService;
+
     final RestService restService;
+
+    final DataBaseRestService dataBaseRestService;
 
     final MessageBuilder messageBuilder;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, ChatService chatService, RestService restService, ChannelService channelService, MessageBuilder messageBuilder) {
+    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService) {
         this.config = config;
-        this.chatService = chatService;
         this.restService = restService;
-        this.channelService = channelService;
         this.messageBuilder = messageBuilder;
+        this.dataBaseRestService = dataBaseRestService;
     }
 
     @Override
@@ -67,15 +66,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         //   ниже обработка кнопок с клавиатуры в панели и команд в сообщении!
         if (update.hasMessage()) {  // проверяем есть ли сообщение
             var message = update.getMessage();
-            logger.info("New message, from chat: " + message.getChatId());
-            Chat chat = chatService.findChat(message.getChatId());
-            if (chat == null) {
-                chat = new Chat(message.getChatId(), new ArrayList<>());
-                chatService.saveChat(chat);
-            }
 
             long chatId = message.getChatId();
             if (chatId != config.getApiChatId()) { // проверяем что чат из которого пришло сообщение это не чат сервиса
+
+                logger.info("New message, from chat: " + message.getChatId());
+                Chat chat = dataBaseRestService.getChatByChatId(message.getChatId());
+                if (chat == null) {
+                    chat = new Chat(message.getChatId(), new ArrayList<>());
+                    dataBaseRestService.saveChat(chat);
+                }
+
+
                 if (message.hasText()) {
                     String messageText = message.getText();
 
@@ -88,12 +90,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                             send(BotMessageService.CreateMessage(chatId, "Инструкция: \n\n 1) Добавьте меня в любой чат \n\n 2) Назначьте администратором, чтобы я мог читать и отправлять сообщения \n\n 3) Отправьте ссылку на любой публичный канал \n\n 4) Наслаждайтесь доступу ко всем постам сразу в одном чате!"));
                             break;
                         case "/menu":
-                            send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов"}, new String[]{"info", "subs","rating"}, "Меню бота:", 2));
+                            send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов"}, new String[]{"info", "subs", "rating"}, "Меню бота:", 2));
                             break;
                         case "/subs":
                             StringBuilder sb = new StringBuilder();
                             int count = 0;
-                            for (Channel channel : chat.getChanelList()) {
+
+                            List<Channel> channelList = dataBaseRestService.getChatChannelsByChatId(chat.getChatId());
+                            for (Channel channel : channelList) {
                                 sb.append('\n');
                                 sb.append(++count).append(") ");
                                 sb.append("<a href=\"" + channel.getInviteLink() + "\">");
@@ -105,13 +109,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                         default:
                             if (update.getMessage().getChatId().equals(config.getAdminChatId()) && messageText.startsWith("/alert")) {
-                                List<Chat> chats = chatService.getAllChats();
+                                List<Long> chatsIds = dataBaseRestService.getAllChatIdOfChats();
                                 logger.info("Alert in all channels !");
 
                                 SendMessage sendMessage = new SendMessage();
 
-                                for (Chat currentChat : chats) {
-                                    sendMessage.setChatId(currentChat.getChatId());
+                                for (Long currentChatId : chatsIds) {
+                                    sendMessage.setChatId(currentChatId);
                                     sendMessage.setText(messageText.replace("/alert", ""));
                                     send(sendMessage);
                                 }
@@ -121,23 +125,26 @@ public class TelegramBot extends TelegramLongPollingBot {
                                 if (messageText.split(" ").length == 2) {
 
                                     Channel channel = null;
+                                    List<Channel> channels = dataBaseRestService.getChatChannelsByChatId(chat.getChatId());
                                     try {
                                         int index = Integer.parseInt(messageText.split(" ")[1]) - 1;
                                         if (index > 0) {
-                                            channel = chat.getChanelList().get(index);
+                                            channel = channels.get(index);
                                         }
 
                                     } catch (NumberFormatException e) {
                                         String link = messageText.split(" ")[1];
-                                        channel = chat.getChanelList().stream().filter(a -> a.getInviteLink().equals(link)).findFirst().orElse(null);
+                                        channel = channels.stream().filter(a -> a.getInviteLink().equals(link)).findFirst().orElse(null);
                                     }
                                     if (channel == null) {
                                         send(BotMessageService.CreateMessage(chatId, "Чтобы отписаться используйте команду в формате \"/unsub 1\" или \"/unsub link\" "));
                                     } else {
-                                        removeChannelAndChat(channel, chat);
 
-                                        if (channel.getChats().isEmpty()) {
-                                            channelService.DeleteChannel(channel);
+                                        dataBaseRestService.removeChannelFromChat(chat, channel);
+
+                                        if (dataBaseRestService.getChannelChatsByChatId(channel.getChatId()).isEmpty()) {
+
+                                            dataBaseRestService.deleteChannel(channel.getChatId());
                                             restService.sendLeaveRequest(channel.getChatId());
                                         }
                                         send(BotMessageService.CreateMessage(chatId, "Вы отписались от канала " + channel.getTitle()));
@@ -151,9 +158,9 @@ public class TelegramBot extends TelegramLongPollingBot {
                                 if (messageText.split(" ").length == 2) {
 
                                     String link = messageText.split(" ")[1];
-                                    Channel channel = channelService.findChannelByInviteLink(link);
+                                    Channel channel = dataBaseRestService.getChannelByInviteLink(link);
                                     if (channel != null) {
-                                        saveChannelAndChat(channel, chat);
+                                        dataBaseRestService.addChannelInChatByChatId(chat, channel);
                                         send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
                                     } else {
                                         String[] response = restService.sendPrivateJoinRequest(link);
@@ -161,7 +168,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                                             send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки для подписки на публичный канал используйте \" /sub channelLink\""));
                                         } else {
                                             channel = new Channel(Long.parseLong(response[1]), response[0], response[2], List.of(chat));
-                                            saveChannelAndChat(channel, chat);
+                                            dataBaseRestService.addChannelInChatByChatId(chat, channel);
                                             send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + response[0] + " оформлена"));
                                         }
                                     }
@@ -177,10 +184,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                                         messageText = messageText.replace("@", "https://t.me/");
                                     }
                                     String link = messageText.split(" ")[1];
-                                    Channel channel = channelService.findChannelByInviteLink(link);
+                                    Channel channel = dataBaseRestService.getChannelByInviteLink(link);
 
                                     if (channel != null) {
-                                        saveChannelAndChat(channel, chat);
+                                        dataBaseRestService.addChannelInChatByChatId(chat, channel);
                                         send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
                                     } else {
                                         String[] response = restService.sendJoinRequest(link);
@@ -188,7 +195,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                                             send(BotMessageService.CreateMessage(chatId, "Такой канал не найден, уточните правильность ссылки, для подписки на приватный канал используйте \" /private_sub invite_link\""));
                                         } else {
                                             channel = new Channel(Long.parseLong(response[1]), response[0], link, List.of(chat));
-                                            saveChannelAndChat(channel, chat);
+                                            dataBaseRestService.addChannelInChatByChatId(chat, channel);
                                             send(BotMessageService.CreateMessage(chatId, "Ваша подписка на канал " + response[0] + " оформлена"));
                                         }
                                     }
@@ -202,7 +209,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
             } else { // сюда попадаем в случае если сообщение из чата сервиса
                 try {
-                    Channel channel = channelService.findChannel(update.getMessage().getForwardFromChat().getId());
+                    Channel channel = dataBaseRestService.getChannelByChatId(update.getMessage().getForwardFromChat().getId());
                     logger.info("New post from channel : " + channel.getTitle() + " chatId :" + channel.getChatId());
                     long mediaId = 0;
                     if (message.getMediaGroupId() != null) {
@@ -238,7 +245,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         else if (update.hasCallbackQuery()) {
             String query = update.getCallbackQuery().getData();
             long ChatId = update.getCallbackQuery().getMessage().getChatId();
-            Chat chat = chatService.findChat(ChatId);
+            Chat chat = dataBaseRestService.getChatByChatId(ChatId);
             StringBuilder sb = new StringBuilder();
             int count = 0;
             switch (query) {
@@ -261,18 +268,15 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case "rating":
                     sb = new StringBuilder();
-                    List<Channel> channels = channelService.getAllChannels();
-                    channels.sort((a, b) -> Integer.compare(b.getChats().size(), a.getChats().size()));
-                    count = channels.size();
-                    if(count > 5) count = 5;
-                    for (int i = 0 ; i < count;i++) {
+                    List<Channel> channels = dataBaseRestService.getChannelRating();
+
+                    for (Channel channel : channels) {
                         sb.append('\n');
-                        sb.append(i+1).append(") ");
-                        sb.append("<a href=\"" + channels.get(i).getInviteLink() + "\">");
-                        sb.append(channels.get(i).getTitle() + "</a>" + " : "+channels.get(i).getChats().size());
+                        sb.append("<a href=\"" + channel.getInviteLink() + "\">");
+                        sb.append(channel.getTitle() + "</a>");
                     }
 
-                    send(BotMessageService.CreateMessage(ChatId, "Топ 5 каналов:\n" + sb.toString() , "HTML"));
+                    send(BotMessageService.CreateMessage(ChatId, "Топ 5 каналов:\n" + sb.toString(), "HTML"));
                     break;
             }
 
@@ -285,58 +289,66 @@ public class TelegramBot extends TelegramLongPollingBot {
      */
     @Scheduled(fixedRate = 5000)
     public void sendMediaGroups() {
-        if (!messageMap.isEmpty()) {
-            for (long key : messageMap.keySet()) {
-                Channel channel = channelService.findChannel(messageMap.get(key).get(0).getForwardFromChat().getId());
+        try {
+            if (!messageMap.isEmpty()) {
+                for (long key : messageMap.keySet()) {
+                    Channel channel = dataBaseRestService.getChannelByChatId(messageMap.get(key).get(0).getForwardFromChat().getId());
 
 
-                List<InputMedia> mediaPhotos = new ArrayList<>();
-                for (Message mes : messageMap.get(key)) {
-                    if (mes.hasPhoto()) {
-                        mediaPhotos.add(new InputMediaPhoto(mes.getPhoto().get(0).getFileId()));
+                    List<InputMedia> mediaPhotos = new ArrayList<>();
+                    for (Message mes : messageMap.get(key)) {
+                        if (mes.hasPhoto()) {
+                            mediaPhotos.add(new InputMediaPhoto(mes.getPhoto().get(0).getFileId()));
+                        }
+                        if (mes.hasVideo()) {
+                            mediaPhotos.add(new InputMediaVideo(mes.getVideo().getFileId()));
+                        }
+                        if (mes.hasAudio()) {
+                            mediaPhotos.add(new InputMediaAudio(mes.getAudio().getFileId()));
+                        }
+                        if (mes.hasAnimation()) {
+                            mediaPhotos.add(new InputMediaAnimation(mes.getAnimation().getFileId()));
+                        }
+
                     }
-                    if (mes.hasVideo()) {
-                        mediaPhotos.add(new InputMediaVideo(mes.getVideo().getFileId()));
+
+                    if (messageMap.get(key).get(0).getCaption() != null) {
+                        mediaPhotos.get(0).setCaption(messageMap.get(key).get(0).getCaption() + "\n#" + messageMap.get(key).get(0).getForwardFromChat().getTitle() + "\n Источник: " + channel.getInviteLink());
+                    } else {
+                        mediaPhotos.get(0).setCaption("#" + replaceSpecialChars(messageMap.get(key).get(0).getForwardFromChat().getTitle()) + "\n Источник: " + channel.getInviteLink());
                     }
-                    if (mes.hasAudio()) {
-                        mediaPhotos.add(new InputMediaAudio(mes.getAudio().getFileId()));
-                    }
-                    if (mes.hasAnimation()) {
-                        mediaPhotos.add(new InputMediaAnimation(mes.getAnimation().getFileId()));
-                    }
+                    // Отправляем медиагруппу (если нужно отправить несколько фотографий)
+                    sendInChats(channel, mediaPhotos);
 
                 }
-
-                if (messageMap.get(key).get(0).getCaption() != null) {
-                    mediaPhotos.get(0).setCaption(messageMap.get(key).get(0).getCaption() + "\n#" + messageMap.get(key).get(0).getForwardFromChat().getTitle() + "\n Источник: " + channel.getInviteLink());
-                } else {
-                    mediaPhotos.get(0).setCaption("#" + replaceSpecialChars(messageMap.get(key).get(0).getForwardFromChat().getTitle()) + "\n Источник: " + channel.getInviteLink());
-                }
-                // Отправляем медиагруппу (если нужно отправить несколько фотографий)
-                sendInChats(channel, mediaPhotos);
-
+                messageMap.clear();
             }
+        } catch (Exception e) {
             messageMap.clear();
+            logger.warning("Critical scheduled method error : " + e);
         }
+
     }
 
     public void sendInChats(Channel channel, Message message) {
 
         SendMediaBotMethod<Message> sendMediaBotMethod = messageBuilder.createMessage(message);
 
+        List<Chat> chats = dataBaseRestService.getChannelChatsByChatId(channel.getChatId());
+
         if (sendMediaBotMethod == null) {
             BotApiMethodMessage botApiMethodMessage = messageBuilder.createApiMessage(message);
-            if (channel.getChats().isEmpty()) {
+            if (chats.isEmpty()) {
                 logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
             }
-            for (Chat channelChat : channel.getChats()) {
+            for (Chat channelChat : chats) {
                 send(botApiMethodMessage, channelChat.getChatId(), channel);
             }
         } else {
-            if (channel.getChats().isEmpty()) {
+            if (chats.isEmpty()) {
                 logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
             }
-            for (Chat channelChat : channel.getChats()) {
+            for (Chat channelChat : chats) {
                 send(sendMediaBotMethod, channelChat.getChatId(), channel);
             }
         }
@@ -363,19 +375,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    public void saveChannelAndChat(Channel channel, Chat chat) {
-        channel.addChat(chat);
-        channelService.saveChannel(channel);
-        chat.addChannel(channel);
-        chatService.saveChat(chat);
-    }
-
-    public void removeChannelAndChat(Channel channel, Chat chat) {
-        channel.removeChat(chat);
-        channelService.saveChannel(channel);
-        chat.deleteChannel(channel.getChatId());
-        chatService.saveChat(chat);
-    }
 
     /**
      * <b>send</b>
@@ -579,8 +578,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         // Заменяем все найденные символы на подчеркивание
         Matcher matcher = pattern.matcher(str);
 
-        String res =  matcher.replaceAll("_");
-        if(res.contains(" ")) res = res.replace(" ","_");
+        String res = matcher.replaceAll("_");
+        if (res.contains(" ")) res = res.replace(" ", "_");
         return res;
     }
 

@@ -25,6 +25,8 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-cache' // Подключение Spring Web
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis' // Подключение Spring Web
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'

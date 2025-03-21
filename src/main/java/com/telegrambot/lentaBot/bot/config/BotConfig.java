@@ -28,6 +28,11 @@ public class BotConfig {
     String apiUrl;
 
     @Getter
+    @Value("${bot.databaseUrl}")
+    String databaseUrl;
+
+
+    @Getter
     @Value("${bot.adminChatId}")
     Long adminChatId;
 }

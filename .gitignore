@@ -38,3 +38,4 @@ out/
 /src/main/resources/application.properties
 /src/main/resources/db/migration/V1_1_0__data_migration.sql
 /src/main/resources/db/migration/
+/src/main/resources/application-test.properties
