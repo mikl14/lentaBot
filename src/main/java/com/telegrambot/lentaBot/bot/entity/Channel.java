@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.util.List;
 
 @Entity
-public class Channel {
+public class Channel  {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
