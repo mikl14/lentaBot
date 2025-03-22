@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -342,14 +343,28 @@ public class TelegramBot extends TelegramLongPollingBot {
                 logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
             }
             for (Chat channelChat : chats) {
-                send(botApiMethodMessage, channelChat.getChatId(), channel);
+                try {
+                    send(botApiMethodMessage, channelChat.getChatId(), channel);
+                }
+                catch (RuntimeException e)
+                {
+                    logger.log(Level.WARNING,"Bot was kicked from chat!");
+                    dataBaseRestService.deleteChat(channelChat.getChatId());
+                }
             }
         } else {
             if (chats.isEmpty()) {
                 logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
             }
             for (Chat channelChat : chats) {
-                send(sendMediaBotMethod, channelChat.getChatId(), channel);
+                try {
+                    send(sendMediaBotMethod, channelChat.getChatId(), channel);
+                }
+                catch (RuntimeException e)
+                {
+                    logger.log(Level.WARNING,"Bot was kicked from chat!");
+                    dataBaseRestService.deleteChat(channelChat.getChatId());
+                }
             }
         }
     }
