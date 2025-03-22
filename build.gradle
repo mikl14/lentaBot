@@ -24,15 +24,11 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-cache' // Подключение Spring Web
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis' // Подключение Spring Web
+	implementation group: 'aspectj', name: 'aspectjweaver', version: '1.5.4'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
-	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'org.flywaydb:flyway-core:9.22.3'
 	implementation group: 'org.telegram', name: 'telegrambots', version: '6.9.7.1'
 	implementation 'org.springframework.boot:spring-boot-starter-web' // Подключение Spring Web
 	testImplementation 'org.springframework.boot:spring-boot-starter-test' // Подключение для тестирования
