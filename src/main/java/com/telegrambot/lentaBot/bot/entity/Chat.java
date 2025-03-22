@@ -1,16 +1,12 @@
 package com.telegrambot.lentaBot.bot.entity;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
 
-@Entity
 public class Chat {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Setter
@@ -19,7 +15,6 @@ public class Chat {
 
     @Setter
     @Getter
-    @ManyToMany(mappedBy = "chats", fetch = FetchType.EAGER)
     private List<Channel> chanelList;
 
     public Chat() {
