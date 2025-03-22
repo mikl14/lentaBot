@@ -86,6 +86,20 @@ public class DataBaseRestService {
     }
 
     /**
+     * <b>deleteChat</b> - удаляет чат
+     */
+    @Logging(entering = true, exiting = true, returnData = true)
+    public boolean deleteChat(Long chatId) {
+        try {
+            String request = sendRequest("/deleteChat", Map.of("chatId", chatId.toString()), "");
+            return request.equals(Status.SUCCESS.toString());
+        } catch (Exception e) {
+            throw new NoSuchElementException();
+        }
+    }
+
+
+    /**
      * <b>getAllChatIdOfChats</b> - возвращает все ChatId существующих чатов
      *
      * @return List Long
