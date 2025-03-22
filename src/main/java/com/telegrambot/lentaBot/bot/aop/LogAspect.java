@@ -14,6 +14,7 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
 import com.telegrambot.lentaBot.bot.annotations.Logging;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -75,7 +76,12 @@ public class LogAspect {
         }
         if (logging.exiting() || logging.entering()) {
             String currentDateString = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            String logFileName = "logs/log-" + currentDateString + ".json";
+            String logFileName = "logs/log_lentaBot-" + currentDateString + ".json";
+
+            File logDir = new File("logs");
+            if (!logDir.exists()) {
+                logDir.mkdir();
+            }
 
             try {
                 String logJson = objectMapper.writeValueAsString(logMap);
