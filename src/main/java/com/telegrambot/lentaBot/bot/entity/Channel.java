@@ -1,16 +1,12 @@
 package com.telegrambot.lentaBot.bot.entity;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
 
-@Entity
-public class Channel  {
+public class Channel {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Setter
@@ -27,12 +23,6 @@ public class Channel  {
 
     @Setter
     @Getter
-    @ManyToMany( fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "chat_channel",
-            joinColumns = @JoinColumn(name = "channel_id"),
-            inverseJoinColumns = @JoinColumn(name = "chat_id")
-    )
     private List<Chat> chats;
 
     public Channel() {
