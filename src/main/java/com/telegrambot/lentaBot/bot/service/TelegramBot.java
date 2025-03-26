@@ -11,9 +11,11 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethodMessage;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.*;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.media.*;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -285,6 +287,29 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     /**
+     * <b>isBotInGroup</b>
+     * проверяет статус бота в группе
+     */
+    public boolean isBotInGroup(String chatId) {
+        GetChatMember getChatMember = new GetChatMember();
+        try {
+            getChatMember.setChatId(chatId);
+            getChatMember.setUserId(getMe().getId()); // Получаем ID бота
+            ChatMember chatMember = execute(getChatMember);
+            // Проверяем статус бота в группе
+            String status = chatMember.getStatus();
+            return !status.equals("kicked") && !status.equals("left");
+        } catch (TelegramApiException e) {
+            if (e.getMessage().contains("403")) {
+                System.out.println("Бот был кикнут из группы.");
+            } else {
+                e.printStackTrace();
+            }
+            return false;
+        }
+    }
+
+    /**
      * <b>sendMediaGroups</b>
      * каждые 5 секунд отправляет накопленные медиа коллекции и отчищает список
      */
@@ -344,12 +369,20 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
             for (Chat channelChat : chats) {
                 try {
-                    send(botApiMethodMessage, channelChat.getChatId(), channel);
+                    if(isBotInGroup(String.valueOf(channelChat.getChatId())))
+                    {
+                        send(botApiMethodMessage, channelChat.getChatId(), channel);
+                    }
+                    else
+                    {
+                        logger.log(Level.WARNING,"Bot was kicked from chat!");
+                        dataBaseRestService.deleteChat(channelChat.getChatId());
+                    }
+
                 }
                 catch (RuntimeException e)
                 {
-                    logger.log(Level.WARNING,"Bot was kicked from chat!");
-                    dataBaseRestService.deleteChat(channelChat.getChatId());
+                    logger.log(Level.WARNING,"Error on send message!");
                 }
             }
         } else {
@@ -372,10 +405,11 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void sendInChats(Channel channel, List<InputMedia> mediaPhotos) {
         SendMediaGroup sendMediaGroup = new SendMediaGroup();
 
-        if (channel.getChats().isEmpty()) {
+        List<Chat> chats = dataBaseRestService.getChannelChatsByChatId(channel.getChatId());
+        if (chats.isEmpty()) {
             logger.warning("No subscribers in channel: " + channel.getTitle() + " chatId :" + channel.getChatId());
         }
-        for (Chat channelChat : channel.getChats()) {
+        for (Chat channelChat : chats) {
             sendMediaGroup.setChatId(String.valueOf(channelChat.getChatId()));
             sendMediaGroup.setMedias(mediaPhotos);
             send(sendMediaGroup);
