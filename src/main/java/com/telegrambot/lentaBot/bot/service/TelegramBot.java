@@ -369,20 +369,15 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
             for (Chat channelChat : chats) {
                 try {
-                    if(isBotInGroup(String.valueOf(channelChat.getChatId())))
-                    {
+                    if (isBotInGroup(String.valueOf(channelChat.getChatId()))) {
                         send(botApiMethodMessage, channelChat.getChatId(), channel);
-                    }
-                    else
-                    {
-                        logger.log(Level.WARNING,"Bot was kicked from chat!");
+                    } else {
+                        logger.log(Level.WARNING, "Bot was kicked from chat!");
                         dataBaseRestService.deleteChat(channelChat.getChatId());
                     }
 
-                }
-                catch (RuntimeException e)
-                {
-                    logger.log(Level.WARNING,"Error on send message!");
+                } catch (RuntimeException e) {
+                    logger.log(Level.WARNING, "Error on send message!");
                 }
             }
         } else {
@@ -391,12 +386,14 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
             for (Chat channelChat : chats) {
                 try {
-                    send(sendMediaBotMethod, channelChat.getChatId(), channel);
-                }
-                catch (RuntimeException e)
-                {
-                    logger.log(Level.WARNING,"Bot was kicked from chat!");
-                    dataBaseRestService.deleteChat(channelChat.getChatId());
+                    if (isBotInGroup(String.valueOf(channelChat.getChatId()))) {
+                        send(sendMediaBotMethod, channelChat.getChatId(), channel);
+                    } else {
+                        logger.log(Level.WARNING, "Bot was kicked from chat!");
+                        dataBaseRestService.deleteChat(channelChat.getChatId());
+                    }
+                } catch (RuntimeException e) {
+                    logger.log(Level.WARNING, "Error on send message!");
                 }
             }
         }
