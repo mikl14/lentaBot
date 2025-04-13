@@ -6,6 +6,7 @@ import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.service.db.DataBaseRestService;
 import com.telegrambot.lentaBot.bot.service.message.BotMessageService;
 import com.telegrambot.lentaBot.bot.service.message.MessageBuilder;
+import com.telegrambot.lentaBot.bot.states.ChatStates;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -37,15 +38,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     final DataBaseRestService dataBaseRestService;
 
     final MessageBuilder messageBuilder;
+
+    final ChatService chatService;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService) {
+    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService,ChatService chatService) {
         this.config = config;
         this.restService = restService;
         this.messageBuilder = messageBuilder;
         this.dataBaseRestService = dataBaseRestService;
+        this.chatService = chatService;
     }
 
     @Override
@@ -79,12 +83,23 @@ public class TelegramBot extends TelegramLongPollingBot {
                     chat = new Chat(message.getChatId(), new ArrayList<>());
                     dataBaseRestService.saveChat(chat);
                 }
-
+                ChatStates chatState = chatService.getChatState(String.valueOf(chatId));
 
                 if (message.hasText()) {
                     String messageText = message.getText();
 
                     switch (messageText) { // обработка команд в текстовых сообщениях
+                        case "/active":
+
+                            if(chatState == null || chatState.equals(ChatStates.INACTIVE))
+                            {
+                                chatService.subscribe(String.valueOf(chat.getChatId()));
+                            }
+                            else
+                            {
+                                send(BotMessageService.CreateMessage(chatId, "Уже активен"));
+                            }
+                            break;
                         case "/start":
                             send(BotMessageService.CreateMessage(chatId, "Я Лента бот, сделаю из любого вашего чата ленту новостей! '\n' Добавляйте меня в чаты в качестве администратора, чтобы сделать из него ленту новостей '\n' Добавляйте своих друзей в свои ленты или делайте тематические ленты"));
                             send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки"}, new String[]{"info", "subs"}, "Меню бота:", 2));
@@ -93,7 +108,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             send(BotMessageService.CreateMessage(chatId, "Инструкция: \n\n 1) Добавьте меня в любой чат \n\n 2) Назначьте администратором, чтобы я мог читать и отправлять сообщения \n\n 3) Отправьте ссылку на любой публичный канал \n\n 4) Наслаждайтесь доступу ко всем постам сразу в одном чате!"));
                             break;
                         case "/menu":
-                            send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов"}, new String[]{"info", "subs", "rating"}, "Меню бота:", 2));
+                            send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов","Подписаться"}, new String[]{"info", "subs", "rating","sub"}, "Меню бота:", 2));
                             break;
                         case "/subs":
                             StringBuilder sb = new StringBuilder();
@@ -111,6 +126,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                             break;
 
                         default:
+
+                            if(chatState == null || chatState.equals(ChatStates.SUBSCRIBED))
+                            {
+                                chatService.deactivate(String.valueOf(chat.getChatId()));
+                                send(BotMessageService.CreateMessage(chatId, "Подписка на канал оформлена:" + messageText, "HTML"));
+
+                            }
+
                             if (update.getMessage().getChatId().equals(config.getAdminChatId()) && messageText.startsWith("/alert")) {
                                 List<Long> chatsIds = dataBaseRestService.getAllChatIdOfChats();
                                 logger.info("Alert in all channels !");
@@ -247,13 +270,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         //   ниже обработка кнопок с клавиатур в сообщении!
         else if (update.hasCallbackQuery()) {
             String query = update.getCallbackQuery().getData();
-            long ChatId = update.getCallbackQuery().getMessage().getChatId();
-            Chat chat = dataBaseRestService.getChatByChatId(ChatId);
+            long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Chat chat = dataBaseRestService.getChatByChatId(chatId);
             StringBuilder sb = new StringBuilder();
             int count = 0;
             switch (query) {
                 case "info":
-                    send(BotMessageService.CreateMessage(ChatId, "Инструкция: \n\n 1) Добавьте меня в любой чат \n\n 2) Назначьте администратором, чтобы я мог читать и отправлять сообщения \n\n 3) Отправьте ссылку на любой публичный канал или ссылку приглашение в закрытый \n\n 4) Наслаждайтесь доступу ко всем постам сразу в одном чате!"));
+                    send(BotMessageService.CreateMessage(chatId, "Инструкция: \n\n 1) Добавьте меня в любой чат \n\n 2) Назначьте администратором, чтобы я мог читать и отправлять сообщения \n\n 3) Отправьте ссылку на любой публичный канал или ссылку приглашение в закрытый \n\n 4) Наслаждайтесь доступу ко всем постам сразу в одном чате!"));
                     break;
 
                 case "subs":
@@ -266,7 +289,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         sb.append(channel.getTitle() + "</a>");
                     }
 
-                    send(BotMessageService.CreateMessage(ChatId, "Ваши подписки:\n" + sb.toString() + " \n\n Для отписки напишите команду /unsub и номер канала в списке \n Пример: /unsub 1", "HTML"));
+                    send(BotMessageService.CreateMessage(chatId, "Ваши подписки:\n" + sb.toString() + " \n\n Для отписки напишите команду /unsub и номер канала в списке \n Пример: /unsub 1", "HTML"));
                     break;
 
                 case "rating":
@@ -279,7 +302,21 @@ public class TelegramBot extends TelegramLongPollingBot {
                         sb.append(channel.getTitle() + "</a>");
                     }
 
-                    send(BotMessageService.CreateMessage(ChatId, "Топ 5 каналов:\n" + sb.toString(), "HTML"));
+                    send(BotMessageService.CreateMessage(chatId, "Топ 5 каналов:\n" + sb.toString(), "HTML"));
+                    break;
+
+                case "sub":
+                    ChatStates chatState = chatService.getChatState(String.valueOf(chatId));
+
+                    if(chatState == null || chatState.equals(ChatStates.INACTIVE))
+                    {
+                        chatService.subscribe(String.valueOf(chat.getChatId()));
+                        send(BotMessageService.CreateMessage(chatId, "Напишите ссылку на канал для подписки"));
+                    }
+                    else
+                    {
+                        send(BotMessageService.CreateMessage(chatId, "Завершите вашу предыдущую сессию!"));
+                    }
                     break;
             }
 
