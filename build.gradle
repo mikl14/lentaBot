@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.telegrambot'
-version = '0.2.4-SNAPSHOT'
+version = '0.2.5-SNAPSHOT'
 
 java {
 	toolchain {
@@ -31,6 +31,9 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation group: 'org.telegram', name: 'telegrambots', version: '6.9.7.1'
 	implementation 'org.springframework.boot:spring-boot-starter-web' // Подключение Spring Web
+	implementation 'org.springframework.statemachine:spring-statemachine-core:4.0.0'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis:3.4.4'
+	implementation 'org.springframework.statemachine:spring-statemachine-redis:1.2.14.RELEASE'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test' // Подключение для тестирования
 }
 
