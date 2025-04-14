@@ -10,6 +10,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +106,31 @@ public class BotMessageService {
             List<InlineKeyboardButton> sublist = buttonList.subList(i, Math.min(i + buttonsInRow, buttonList.size()));
             rowList.add(sublist);
         }
+
+        inlineKeyboardMarkup.setKeyboard(rowList);
+
+        SendMessage message = new SendMessage();
+        message.setText(keyBoardName);
+        message.setChatId(String.valueOf(chatId));
+        message.setReplyMarkup(inlineKeyboardMarkup);
+        return message;
+    }
+
+    public static SendMessage createWebAppInlineKeyBoardMessage(long chatId, WebAppInfo webAppInfo, String keyBoardName) {
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+
+        List<InlineKeyboardButton> buttonList = new ArrayList<>();
+
+            InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
+            inlineKeyboardButton.setText("OpenApp");
+            inlineKeyboardButton.setWebApp(webAppInfo);
+            buttonList.add(inlineKeyboardButton);
+
+
+
+        List<List<InlineKeyboardButton>> rowList = new ArrayList<>();
+
+        rowList.add(buttonList);
 
         inlineKeyboardMarkup.setKeyboard(rowList);
 
