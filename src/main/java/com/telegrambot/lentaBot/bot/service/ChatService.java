@@ -18,8 +18,7 @@ public class ChatService {
         this.persister = persister;
     }
 
-    public void subscribe (String chatId)
-    {
+    private void changeState(String chatId, ChatEvents chatEvents) {
         StateMachine<ChatStates, ChatEvents> stateMachine = stateMachineFactory.getStateMachine();
         // Восстановление состояния из Redis
         try {
@@ -29,7 +28,7 @@ public class ChatService {
         }
 
         // Отправка события
-        stateMachine.sendEvent(ChatEvents.SUBSCRIBE);
+        stateMachine.sendEvent(chatEvents);
 
         try {
             persister.persist(stateMachine, chatId);
@@ -39,39 +38,35 @@ public class ChatService {
         }
     }
 
-    public void deactivate(String chatId)  {
-        StateMachine<ChatStates, ChatEvents> stateMachine = stateMachineFactory.getStateMachine();
-        // Восстановление состояния из Redis
-        try {
-            persister.restore(stateMachine, chatId);
-        } catch (Exception e) {
-            System.out.println("Ошибка восстановления: " + e.getMessage());
-        }
+    public void subscribe(String chatId) {
+        deactivate(chatId);
+        changeState(chatId, ChatEvents.SUBSCRIBE);
+    }
 
-        // Отправка события
-        stateMachine.sendEvent(ChatEvents.DEACTIVATE);
+    public void privateSubscribe(String chatId) {
+        deactivate(chatId);
+        changeState(chatId, ChatEvents.PRIVATE_SUBSCRIBE);
+    }
 
-        try {
-            persister.persist(stateMachine, chatId);
-            System.out.println("Текущее состояние: " + stateMachine.getState().getId()); // Для отладки
-        } catch (Exception e) {
-            System.out.println("Ошибка сохранения: " + e.getMessage());
-        }
+    public void unSub(String chatId) {
+        deactivate(chatId);
+        changeState(chatId, ChatEvents.UNSUB);
+    }
+
+
+    public void deactivate(String chatId) {
+        changeState(chatId, ChatEvents.DEACTIVATE);
     }
 
     public ChatStates getChatState(String chatId) {
         StateMachine<ChatStates, ChatEvents> stateMachine = stateMachineFactory.getStateMachine();
-
-        // Восстановление состояния из Redis
-
-
         try {
             persister.restore(stateMachine, chatId);
             // Возвращение текущего состояния
             return stateMachine.getState().getId();
         } catch (Exception e) {
             // Обработка исключения
-            System.out.println("No session"+ e);
+            System.out.println("No session" + e);
             return null;
         }
     }

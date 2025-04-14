@@ -22,20 +22,35 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<ChatSt
     public void configure(StateMachineStateConfigurer<ChatStates, ChatEvents> states) throws Exception {
         states.withStates()
                 .initial(ChatStates.INACTIVE)
-                .state(ChatStates.SUBSCRIBED);
+                .state(ChatStates.SUBSCRIBED)
+                .state(ChatStates.PRIVATE_SUBSCRIBED)
+                .state(ChatStates.UNSUBED);
     }
 
     @Override
     public void configure(StateMachineTransitionConfigurer<ChatStates, ChatEvents> transitions) throws Exception {
         transitions.withExternal()
-                .source(ChatStates.INACTIVE)
-                .target(ChatStates.SUBSCRIBED)
-                .event(ChatEvents.SUBSCRIBE)
+                .source(ChatStates.INACTIVE).target(ChatStates.SUBSCRIBED).event(ChatEvents.SUBSCRIBE)
+                .and()
+
+                .withExternal()
+                .source(ChatStates.SUBSCRIBED).target(ChatStates.INACTIVE).event(ChatEvents.DEACTIVATE)
+
                 .and()
                 .withExternal()
-                .source(ChatStates.SUBSCRIBED)
-                .target(ChatStates.INACTIVE)
-                .event(ChatEvents.DEACTIVATE)
+                .source(ChatStates.INACTIVE).target(ChatStates.PRIVATE_SUBSCRIBED).event(ChatEvents.PRIVATE_SUBSCRIBE)
+
+                .and()
+                .withExternal()
+                .source(ChatStates.PRIVATE_SUBSCRIBED).target(ChatStates.INACTIVE).event(ChatEvents.DEACTIVATE)
+
+                .and()
+                .withExternal()
+                .source(ChatStates.INACTIVE).target(ChatStates.UNSUBED).event(ChatEvents.UNSUB)
+
+                .and()
+                .withExternal()
+                .source(ChatStates.UNSUBED).target(ChatStates.INACTIVE).event(ChatEvents.DEACTIVATE)
         ;
     }
 }
