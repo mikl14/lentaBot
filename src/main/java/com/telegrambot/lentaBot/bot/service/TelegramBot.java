@@ -6,6 +6,7 @@ import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.service.db.DataBaseRestService;
 import com.telegrambot.lentaBot.bot.service.message.BotMessageService;
 import com.telegrambot.lentaBot.bot.service.message.MessageBuilder;
+import com.telegrambot.lentaBot.bot.states.StateChatService;
 import com.telegrambot.lentaBot.bot.states.ChatStates;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -39,17 +40,17 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     final MessageBuilder messageBuilder;
 
-    final ChatService chatService;
+    final StateChatService stateChatService;
     Logger logger = Logger.getLogger(TelegramBot.class.getName());
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService, ChatService chatService) {
+    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService, StateChatService stateChatService) {
         this.config = config;
         this.restService = restService;
         this.messageBuilder = messageBuilder;
         this.dataBaseRestService = dataBaseRestService;
-        this.chatService = chatService;
+        this.stateChatService = stateChatService;
     }
 
     @Override
@@ -71,14 +72,13 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         //   ниже обработка кнопок с клавиатуры в панели и команд в сообщении!
-
         if (update.hasCallbackQuery()) {
             String query = update.getCallbackQuery().getData();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
             Chat chat = dataBaseRestService.getChatByChatId(chatId);
             StringBuilder sb = new StringBuilder();
             int count = 0;
-            ChatStates chatState = chatService.getChatState(String.valueOf(chatId));
+            ChatStates chatState = stateChatService.getChatState(String.valueOf(chatId));
             switch (query) {
 
                 case "info":
@@ -100,7 +100,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case "inactive":
                     if (!chatState.equals(ChatStates.INACTIVE)) {
-                        chatService.deactivate(String.valueOf(chat.getChatId()));
+                        stateChatService.deactivate(String.valueOf(chat.getChatId()));
                         send(BotMessageService.CreateMessage(chatId, "Операция отменена"));
                     }
                     break;
@@ -121,7 +121,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         chat = new Chat(message.getChatId(), new ArrayList<>());
                         dataBaseRestService.saveChat(chat);
                     }
-                    ChatStates chatState = chatService.getChatState(String.valueOf(chatId));
+                    ChatStates chatState = stateChatService.getChatState(String.valueOf(chatId));
 
                     if (message.hasText()) {
                         String messageText = message.getText();
@@ -171,7 +171,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             case "Подписаться":
                             case "sub":
                                 if (chatState == null || chatState.equals(ChatStates.INACTIVE)) {
-                                    chatService.subscribe(String.valueOf(chat.getChatId()));
+                                    stateChatService.subscribe(String.valueOf(chat.getChatId()));
                                     send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Отмена"}, new String[]{"inactive"}, "Напишите ссылку на закрытый канал для подписки!:", 1));
                                 } else {
                                     send(BotMessageService.CreateMessage(chatId, "Завершите вашу предыдущую сессию!"));
@@ -181,7 +181,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             case "private_sub":
 
                                 if (chatState == null || chatState.equals(ChatStates.INACTIVE)) {
-                                    chatService.privateSubscribe(String.valueOf(chat.getChatId()));
+                                    stateChatService.privateSubscribe(String.valueOf(chat.getChatId()));
                                     send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Отмена"}, new String[]{"inactive"}, "Напишите ссылку на закрытый канал для подписки!:", 1));
                                     //       send(BotMessageService.CreateMessage(chatId, "Напишите ссылку на закрытый канал для подписки"));
                                 } else {
@@ -191,7 +191,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             case "Отписаться":
                             case "unSub":
                                 if (chatState == null || chatState.equals(ChatStates.INACTIVE)) {
-                                    chatService.unSub(String.valueOf(chat.getChatId()));
+                                    stateChatService.unSub(String.valueOf(chat.getChatId()));
                                     send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Отмена"}, new String[]{"inactive"}, "Напишите ссылку на канал для отписки!:", 1));
                                 } else {
                                     send(BotMessageService.CreateMessage(chatId, "Завершите вашу предыдущую сессию!"));
@@ -203,17 +203,17 @@ public class TelegramBot extends TelegramLongPollingBot {
                                 switch (chatState) {
                                     case SUBSCRIBED:
                                         subOnChannel(chat, messageText);
-                                        chatService.deactivate(String.valueOf(chat.getChatId()));
+                                        stateChatService.deactivate(String.valueOf(chat.getChatId()));
                                         break;
 
                                     case PRIVATE_SUBSCRIBED:
                                         privateSubOnChannel(chat, messageText);
-                                        chatService.deactivate(String.valueOf(chat.getChatId()));
+                                        stateChatService.deactivate(String.valueOf(chat.getChatId()));
                                         break;
 
                                     case UNSUBED:
                                         unSubOnChannel(chat, messageText);
-                                        chatService.deactivate(String.valueOf(chat.getChatId()));
+                                        stateChatService.deactivate(String.valueOf(chat.getChatId()));
                                         break;
                                 }
 
@@ -629,6 +629,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * <b>subOnChannel</b> подписывает на не закрытый канал (подпишет и на закрытый если он есть в базе)
+     * @param chat - чат
+     * @param channelLink - ссылка на канал для подписки
+     */
+
     private void subOnChannel(Chat chat, String channelLink) {
         if (channelLink.startsWith("@")) {
             channelLink = channelLink.replace("@", "https://t.me/");
@@ -650,7 +656,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
 
     }
-
+    /**
+     * <b>privateSubOnChannel</b> подписывает на закрытый канал
+     * @param chat - чат
+     * @param channelLink - ссылка на канал для подписки
+     */
     private void privateSubOnChannel(Chat chat, String channelLink) {
         Channel channel = dataBaseRestService.getChannelByInviteLink(channelLink);
         if (channel != null) {
@@ -667,7 +677,11 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
         }
     }
-
+    /**
+     * <b>unSubOnChannel</b> отписывает от канала
+     * @param chat - чат
+     * @param channelLink - ссылка на канал для подписки
+     */
     private void unSubOnChannel(Chat chat, String channelLink) {
         Channel channel = dataBaseRestService.getChannelByInviteLink(channelLink);
         if(channel != null){

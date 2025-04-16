@@ -1,19 +1,17 @@
-package com.telegrambot.lentaBot.bot.service;
+package com.telegrambot.lentaBot.bot.states;
 
-import com.telegrambot.lentaBot.bot.states.ChatEvents;
-import com.telegrambot.lentaBot.bot.states.ChatStates;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.persist.StateMachinePersister;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ChatService {
+public class StateChatService {
     private final StateMachineFactory<ChatStates, ChatEvents> stateMachineFactory;
 
     private final StateMachinePersister<ChatStates, ChatEvents, String> persister;
 
-    public ChatService(StateMachineFactory<ChatStates, ChatEvents> stateMachineFactory, StateMachinePersister<ChatStates, ChatEvents, String> persister) {
+    public StateChatService(StateMachineFactory<ChatStates, ChatEvents> stateMachineFactory, StateMachinePersister<ChatStates, ChatEvents, String> persister) {
         this.stateMachineFactory = stateMachineFactory;
         this.persister = persister;
     }
