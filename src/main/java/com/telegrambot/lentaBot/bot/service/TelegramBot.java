@@ -130,7 +130,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                             case "/start":
                                 send(BotMessageService.CreateMessage(chatId, "Я Лента бот, сделаю из любого вашего чата ленту новостей! '\n' Добавляйте меня в чаты в качестве администратора, чтобы сделать из него ленту новостей '\n' Добавляйте своих друзей в свои ленты или делайте тематические ленты"));
                             case "/menu":
-                                send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов", "Подписаться","Подписаться Закрытый канал","Отписаться"}, new String[]{"info", "subs", "rating", "sub","private_sub","unSub"}, "Меню бота:", 1));
+                                send(BotMessageService.createKeyboard(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов", "Подписаться","Подписаться Закрытый канал","Отписаться"}));
+                                //         send(BotMessageService.createInlineKeyBoardMessage(chatId, new String[]{"Инфо", "Мои Подписки", "Топ 5 каналов", "Подписаться","Подписаться Закрытый канал","Отписаться"}, new String[]{"info", "subs", "rating", "sub","private_sub","unSub"}, "Меню бота:", 1));
                                 break;
 
                             case "Инфо":

@@ -23,6 +23,7 @@ public class AppConfig {
         return new RestTemplate();
     }
 
+
     @Bean
     public StateMachinePersist<ChatStates, ChatEvents, String> redisPersist(RedisTemplate<String, String> redisTemplate) {
         return new RedisStateMachinePersist(redisTemplate);
