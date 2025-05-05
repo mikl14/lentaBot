@@ -6,8 +6,10 @@ import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.service.db.DataBaseRestService;
 import com.telegrambot.lentaBot.bot.service.message.BotMessageService;
 import com.telegrambot.lentaBot.bot.service.message.MessageBuilder;
+import com.telegrambot.lentaBot.bot.service.rest.GatewayRestService;
 import com.telegrambot.lentaBot.bot.states.StateChatService;
 import com.telegrambot.lentaBot.bot.states.ChatStates;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -34,7 +36,7 @@ import java.util.regex.Pattern;
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
 
-    final RestService restService;
+    final GatewayRestService gatewayRestService;
 
     final DataBaseRestService dataBaseRestService;
 
@@ -45,9 +47,9 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     Map<Long, List<Message>> messageMap = new HashMap<>();
 
-    public TelegramBot(BotConfig config, RestService restService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService, StateChatService stateChatService) {
+    public TelegramBot(BotConfig config, GatewayRestService gatewayRestService, MessageBuilder messageBuilder, DataBaseRestService dataBaseRestService, StateChatService stateChatService) {
         this.config = config;
-        this.restService = restService;
+        this.gatewayRestService = gatewayRestService;
         this.messageBuilder = messageBuilder;
         this.dataBaseRestService = dataBaseRestService;
         this.stateChatService = stateChatService;
@@ -646,13 +648,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             dataBaseRestService.addChannelInChatByChatId(chat, channel);
             send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
         } else {
-            String[] response = restService.sendJoinRequest(channelLink);
+            ResponseEntity<String> response = gatewayRestService.sendJoinRequest(channelLink);
             if (response == null) {
                 send(BotMessageService.CreateMessage(chat.getChatId(), "Такой канал не найден! Используйте только прямые ссылки (не реферальные)!"));
             } else {
-                channel = new Channel(Long.parseLong(response[1]), response[0], channelLink, List.of(chat));
+                channel = new Channel(Long.parseLong(response.getHeaders().get("chatId").get(0)), response.getHeaders().get("channelName").get(0), channelLink, List.of(chat));
                 dataBaseRestService.addChannelInChatByChatId(chat, channel);
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response[0] + " оформлена"));
+                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response.getHeaders().get("channelName").get(0) + " оформлена"));
             }
         }
 
@@ -668,13 +670,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             dataBaseRestService.addChannelInChatByChatId(chat, channel);
             send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
         } else {
-            String[] response = restService.sendPrivateJoinRequest(channelLink);
+            ResponseEntity<String> response = gatewayRestService.sendPrivateJoinRequest(channelLink);
             if (response == null) {
                 send(BotMessageService.CreateMessage(chat.getChatId(), "Такой канал не найден! Используйте только прямые ссылки (не реферальные)!"));
             } else {
-                channel = new Channel(Long.parseLong(response[1]), response[0], response[2], List.of(chat));
+                channel = new Channel(Long.parseLong(response.getHeaders().get("chatId").get(0)), response.getHeaders().get("channelName").get(0), response.getHeaders().get("channelLink").get(0), List.of(chat));
                 dataBaseRestService.addChannelInChatByChatId(chat, channel);
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response[0] + " оформлена"));
+                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response.getHeaders().get("channelName").get(0) + " оформлена"));
             }
         }
     }
@@ -691,7 +693,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (dataBaseRestService.getChannelChatsByChatId(channel.getChatId()).isEmpty()) {
 
                 dataBaseRestService.deleteChannel(channel.getChatId());
-                restService.sendLeaveRequest(channel.getChatId());
+                gatewayRestService.sendLeaveRequest(channel.getInviteLink());
             }
             send(BotMessageService.CreateMessage(chat.getChatId(), "Вы отписались от канала " + channel.getTitle()));
         }

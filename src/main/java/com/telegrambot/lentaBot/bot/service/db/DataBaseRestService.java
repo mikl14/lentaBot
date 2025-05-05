@@ -7,9 +7,11 @@ import com.telegrambot.lentaBot.bot.config.BotConfig;
 import com.telegrambot.lentaBot.bot.entity.Channel;
 import com.telegrambot.lentaBot.bot.entity.Chat;
 import com.telegrambot.lentaBot.bot.requests.Status;
+import com.telegrambot.lentaBot.bot.service.rest.RestService;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,7 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.logging.Logger;
 
 @Service
-public class DataBaseRestService {
+public class DataBaseRestService extends RestService {
     Logger logger = Logger.getLogger(DataBaseRestService.class.getName());
 
     private final BotConfig config;
@@ -28,31 +30,11 @@ public class DataBaseRestService {
 
     private final ObjectMapper mapper;
 
-    public DataBaseRestService(BotConfig config, RestTemplate restTemplate, ObjectMapper mapper) {
+    public DataBaseRestService(RestTemplate restTemplate, ObjectMapper mapper, BotConfig config, RestTemplate restTemplate1, ObjectMapper mapper1) {
+        super(restTemplate, mapper);
         this.config = config;
-        this.restTemplate = restTemplate;
-        this.mapper = mapper;
-    }
-
-    public String sendRequest(String prefix, Map<String, String> headers, String body) {
-        StringBuilder sb = new StringBuilder(config.getDatabaseUrl() + prefix);
-
-        HttpHeaders reqHeaders = new HttpHeaders();
-        reqHeaders.setContentType(MediaType.APPLICATION_JSON);
-        for (Map.Entry<String, String> entry : headers.entrySet()) {
-            reqHeaders.add(entry.getKey(), entry.getValue());
-        }
-
-
-        HttpEntity<String> requestEntity = new HttpEntity<>(body, reqHeaders);
-
-        try {
-            return restTemplate.postForObject(sb.toString(), requestEntity, String.class);
-
-        } catch (Exception e) {
-            logger.warning("trouble on send request to Base! " + e);
-            throw new NoSuchElementException();
-        }
+        this.restTemplate = restTemplate1;
+        this.mapper = mapper1;
     }
 
     /**
@@ -64,7 +46,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public Chat getChatByChatId(Long chatId) {
         try {
-            return mapper.readValue(sendRequest("/getChatByChatId", Map.of("chatId", chatId.toString()), ""), Chat.class);
+            return sendRequest(config.getDatabaseUrl()+ "/getChatByChatId", Map.of("chatId", chatId.toString()), "", Chat.class);
         } catch (Exception e) {
             return null;
         }
@@ -78,8 +60,8 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public boolean saveChat(Chat chat) {
         try {
-            String request = sendRequest("/saveChat", new HashMap<>(), mapper.writeValueAsString(chat));
-            return request.equals(Status.SUCCESS.toString());
+            ResponseEntity<String> responseEntity = sendRequest(config.getDatabaseUrl()+"/saveChat", new HashMap<>(), mapper.writeValueAsString(chat));
+            return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
         }
@@ -91,8 +73,8 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public boolean deleteChat(Long chatId) {
         try {
-            String request = sendRequest("/deleteChat", Map.of("chatId", chatId.toString()), "");
-            return request.equals(Status.SUCCESS.toString());
+            ResponseEntity<String> responseEntity =  sendRequest(config.getDatabaseUrl()+"/deleteChat", Map.of("chatId", chatId.toString()), "");
+            return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
         }
@@ -107,8 +89,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public List<Long> getAllChatIdOfChats() {
         try {
-            return mapper.readValue(sendRequest("/getAllChatIdOfChats", new HashMap<>(), ""), new TypeReference<List<Long>>() {
-            });
+            return sendRequestWithList(config.getDatabaseUrl()+"/getAllChatIdOfChats", new HashMap<>(), "", Long.class);
         } catch (Exception e) {
             return null;
         }
@@ -124,8 +105,8 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public boolean addChannelInChatByChatId(Chat chat, Channel channel) {
         try {
-            String request = sendRequest("/addChannelInChatByChatId", Map.of("chatId", chat.getChatId().toString()), mapper.writeValueAsString(channel));
-            return request.equals(Status.SUCCESS.toString());
+            ResponseEntity<String> responseEntity =  sendRequest(config.getDatabaseUrl()+"/addChannelInChatByChatId", Map.of("chatId", chat.getChatId().toString()), mapper.writeValueAsString(channel));
+            return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
         }
@@ -141,8 +122,8 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public boolean removeChannelFromChat(Chat chat, Channel channel) {
         try {
-            String request = sendRequest("/removeChannelFromChat", Map.of("chatId", chat.getChatId().toString(), "channelChatId", channel.getChatId().toString()), "");
-            return request.equals(Status.SUCCESS.toString());
+            ResponseEntity<String> responseEntity = sendRequest(config.getDatabaseUrl()+"/removeChannelFromChat", Map.of("chatId", chat.getChatId().toString(), "channelChatId", channel.getChatId().toString()), "");
+            return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
         }
@@ -157,8 +138,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public List<Channel> getChatChannelsByChatId(Long chatId) {
         try {
-            return mapper.readValue(sendRequest("/getChatChannelsByChatId", Map.of("chatId", chatId.toString()), ""), new TypeReference<List<Channel>>() {
-            });
+            return sendRequestWithList(config.getDatabaseUrl()+"/getChatChannelsByChatId", Map.of("chatId", chatId.toString()), "", Channel.class);
         } catch (Exception e) {
             return null;
         }
@@ -173,7 +153,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public Channel getChannelByChatId(Long chatId) {
         try {
-            return mapper.readValue(sendRequest("/getChannelByChatId", Map.of("chatId", chatId.toString()), ""), Channel.class);
+            return sendRequest(config.getDatabaseUrl()+"/getChannelByChatId", Map.of("chatId", chatId.toString()), "", Channel.class);
         } catch (Exception e) {
             return null;
         }
@@ -188,8 +168,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public List<Chat> getChannelChatsByChatId(Long chatId) {
         try {
-            return mapper.readValue(sendRequest("/getChannelChatsByChatId", Map.of("chatId", chatId.toString()), ""), new TypeReference<List<Chat>>() {
-            });
+            return sendRequestWithList(config.getDatabaseUrl()+"/getChannelChatsByChatId", Map.of("chatId", chatId.toString()), "",Chat.class);
         } catch (Exception e) {
             return null;
         }
@@ -204,7 +183,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public Channel getChannelByInviteLink(String inviteLink) {
         try {
-            return mapper.readValue(sendRequest("/getChannelByInviteLink", Map.of("inviteLink", inviteLink), ""), Channel.class);
+            return sendRequest(config.getDatabaseUrl()+"/getChannelByInviteLink", Map.of("inviteLink", inviteLink), "", Channel.class);
         } catch (Exception e) {
             return null;
         }
@@ -216,8 +195,8 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public boolean deleteChannel(Long chatId) {
         try {
-            String request = sendRequest("/deleteChannel", Map.of("chatId", chatId.toString()), "");
-            return request.equals(Status.SUCCESS.toString());
+            ResponseEntity<String> responseEntity = sendRequest(config.getDatabaseUrl()+"/deleteChannel", Map.of("chatId", chatId.toString()), "");
+            return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
         }
@@ -231,8 +210,7 @@ public class DataBaseRestService {
     @Logging(entering = true, exiting = true, returnData = true)
     public List<Channel> getChannelRating() {
         try {
-            return mapper.readValue(sendRequest("/getChannelRating", new HashMap<>(), ""), new TypeReference<List<Channel>>() {
-            });
+            return sendRequestWithList(config.getDatabaseUrl()+"/getChannelRating", new HashMap<>(), "", Channel.class);
         } catch (Exception e) {
             throw new NoSuchElementException();
         }

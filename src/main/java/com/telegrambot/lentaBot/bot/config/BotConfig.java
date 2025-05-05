@@ -31,6 +31,10 @@ public class BotConfig {
     @Value("${bot.databaseUrl}")
     String databaseUrl;
 
+    @Getter
+    @Value("${bot.gatewayUrl}")
+    String gatewayUrl;
+
 
     @Getter
     @Value("${bot.adminChatId}")
