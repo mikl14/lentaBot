@@ -1,5 +1,6 @@
 package com.telegrambot.lentaBot.bot.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,6 +25,12 @@ public class Channel {
     @Setter
     @Getter
     private List<Chat> chats;
+
+    @JsonIgnore
+    @Setter
+    @Getter
+    private String avatarLink;
+
 
     public Channel() {
     }
