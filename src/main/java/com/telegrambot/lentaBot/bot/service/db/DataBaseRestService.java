@@ -103,9 +103,9 @@ public class DataBaseRestService extends RestService {
      * @return result true/false
      */
     @Logging(entering = true, exiting = true, returnData = true)
-    public boolean addChannelInChatByChatId(Chat chat, Channel channel) {
+    public boolean addChannelInChatByChatId(Long chatId, String channelLink) {
         try {
-            ResponseEntity<String> responseEntity =  sendRequest(config.getDatabaseUrl()+"/addChannelInChatByChatId", Map.of("chatId", chat.getChatId().toString()), mapper.writeValueAsString(channel));
+            ResponseEntity<String> responseEntity =  sendRequest(config.getDatabaseUrl()+"/addChannelInChatByChatId", Map.of("chatId", chatId.toString(), "channelLink",channelLink),"");
             return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();
@@ -120,9 +120,9 @@ public class DataBaseRestService extends RestService {
      * @return result true/false
      */
     @Logging(entering = true, exiting = true, returnData = true)
-    public boolean removeChannelFromChat(Chat chat, Channel channel) {
+    public boolean removeChannelFromChat(Chat chat, String channelLink) {
         try {
-            ResponseEntity<String> responseEntity = sendRequest(config.getDatabaseUrl()+"/removeChannelFromChat", Map.of("chatId", chat.getChatId().toString(), "channelChatId", channel.getChatId().toString()), "");
+            ResponseEntity<String> responseEntity = sendRequest(config.getDatabaseUrl()+"/removeChannelFromChat", Map.of("chatId", chat.getChatId().toString(), "channelLink", channelLink), "");
             return responseEntity.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             throw new NoSuchElementException();

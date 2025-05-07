@@ -23,10 +23,7 @@ import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember;
 import org.telegram.telegrambots.meta.api.objects.media.*;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -119,10 +116,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     StringBuilder sb =  new StringBuilder();
                     logger.info("New message, from chat: " + message.getChatId());
                     Chat chat = dataBaseRestService.getChatByChatId(message.getChatId());
-                    if (chat == null) {
-                        chat = new Chat(message.getChatId(), new ArrayList<>());
-                        dataBaseRestService.saveChat(chat);
-                    }
+
                     ChatStates chatState = stateChatService.getChatState(String.valueOf(chatId));
 
                     if (message.hasText()) {
@@ -204,13 +198,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                             default:
 
                                 switch (chatState) {
-                                    case SUBSCRIBED:
+                                    case SUBSCRIBED, PRIVATE_SUBSCRIBED:
                                         subOnChannel(chat, messageText);
-                                        stateChatService.deactivate(String.valueOf(chat.getChatId()));
-                                        break;
-
-                                    case PRIVATE_SUBSCRIBED:
-                                        privateSubOnChannel(chat, messageText);
                                         stateChatService.deactivate(String.valueOf(chat.getChatId()));
                                         break;
 
@@ -639,68 +628,25 @@ public class TelegramBot extends TelegramLongPollingBot {
      */
 
     private void subOnChannel(Chat chat, String channelLink) {
-        if (channelLink.startsWith("@")) {
-            channelLink = channelLink.replace("@", "https://t.me/");
-        }
-        Channel channel = dataBaseRestService.getChannelByInviteLink(channelLink);
 
-        if (channel != null) {
-            dataBaseRestService.addChannelInChatByChatId(chat, channel);
-            send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
-        } else {
-            ResponseEntity<String> response = gatewayRestService.sendJoinRequest(channelLink);
-            if (response == null) {
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Такой канал не найден! Используйте только прямые ссылки (не реферальные)!"));
-            } else {
-                channel = new Channel(Long.parseLong(response.getHeaders().get("chatId").get(0)), response.getHeaders().get("channelName").get(0), channelLink, List.of(chat));
-                dataBaseRestService.addChannelInChatByChatId(chat, channel);
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response.getHeaders().get("channelName").get(0) + " оформлена"));
-            }
+        try {
+            dataBaseRestService.addChannelInChatByChatId(chat.getChatId(),channelLink);
+            send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал оформлена"));
+        }
+        catch (NoSuchElementException e)
+        {
+            send(BotMessageService.CreateMessage(chat.getChatId(), "Такой канал не найден! Используйте только прямые ссылки (не реферальные)!"));
         }
 
     }
-    /**
-     * <b>privateSubOnChannel</b> подписывает на закрытый канал
-     * @param chat - чат
-     * @param channelLink - ссылка на канал для подписки
-     */
-    private void privateSubOnChannel(Chat chat, String channelLink) {
-        Channel channel = dataBaseRestService.getChannelByInviteLink(channelLink);
-        if (channel != null) {
-            dataBaseRestService.addChannelInChatByChatId(chat, channel);
-            send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + channel.getTitle() + " оформлена"));
-        } else {
-            ResponseEntity<String> response = gatewayRestService.sendPrivateJoinRequest(channelLink);
-            if (response == null) {
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Такой канал не найден! Используйте только прямые ссылки (не реферальные)!"));
-            } else {
-                channel = new Channel(Long.parseLong(response.getHeaders().get("chatId").get(0)), response.getHeaders().get("channelName").get(0), response.getHeaders().get("channelLink").get(0), List.of(chat));
-                dataBaseRestService.addChannelInChatByChatId(chat, channel);
-                send(BotMessageService.CreateMessage(chat.getChatId(), "Ваша подписка на канал " + response.getHeaders().get("channelName").get(0) + " оформлена"));
-            }
-        }
-    }
+
     /**
      * <b>unSubOnChannel</b> отписывает от канала
      * @param chat - чат
      * @param channelLink - ссылка на канал для подписки
      */
     private void unSubOnChannel(Chat chat, String channelLink) {
-        Channel channel = dataBaseRestService.getChannelByInviteLink(channelLink);
-        if(channel != null){
-            dataBaseRestService.removeChannelFromChat(chat, channel);
-
-            if (dataBaseRestService.getChannelChatsByChatId(channel.getChatId()).isEmpty()) {
-
-                dataBaseRestService.deleteChannel(channel.getChatId());
-                gatewayRestService.sendLeaveRequest(channel.getInviteLink());
-            }
-            send(BotMessageService.CreateMessage(chat.getChatId(), "Вы отписались от канала " + channel.getTitle()));
-        }
-        else
-        {
-            send(BotMessageService.CreateMessage(chat.getChatId(), "Вы не подписаны на этот канал! "));
-        }
+            dataBaseRestService.removeChannelFromChat(chat, channelLink);
     }
 }
 
