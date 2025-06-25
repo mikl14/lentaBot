@@ -13,10 +13,18 @@ java {
 	}
 }
 
+bootRun {
+    enabled = false
+}
+
 configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
 	}
+
+	runtimeClasspath {
+        exclude group: 'commons-logging', module: 'commons-logging'
+    }
 }
 
 repositories {
