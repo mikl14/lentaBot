@@ -238,6 +238,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         Channel channel = dataBaseRestService.getChannelByChatId(update.getMessage().getForwardFromChat().getId());
                         logger.info("New post from channel : " + channel.getTitle() + " chatId :" + channel.getChatId());
                         long mediaId = 0;
+                        
                         if (message.getMediaGroupId() != null) {
                             mediaId = Long.parseLong(message.getMediaGroupId());
                         }

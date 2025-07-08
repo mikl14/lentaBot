@@ -35,6 +35,7 @@ dependencies {
 	implementation group: 'aspectj', name: 'aspectjweaver', version: '1.5.4'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation group: 'org.telegram', name: 'telegrambots', version: '6.9.7.1'
@@ -43,6 +44,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis:3.4.4'
 	implementation 'org.springframework.statemachine:spring-statemachine-redis:1.2.14.RELEASE'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test' // Подключение для тестирования
+	
+	implementation 'org.springframework.kafka:spring-kafka'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
 }
 
 bootJar {
